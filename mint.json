@@ -63,7 +63,8 @@
       "group": "RSG Core",
       "pages": [
         "essentials/shared",
-        "essentials/sharedexports"
+        "essentials/sharedexports",
+        "essentials/playerdata"
       ]
     },
     {

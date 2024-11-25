@@ -4,8 +4,6 @@ description: Reusable, custom snippets to keep content in sync
 icon: 'recycle'
 ---
 
-import SnippetIntro from '/snippets/snippet-intro.mdx';
-
 <SnippetIntro />
 
 ## Creating a custom snippet
@@ -35,7 +33,7 @@ day is {word}.
   order for the import to work.
 </Warning>
 
-2. Import the snippet into your destination file.
+1. Import the snippet into your destination file.
 
 ```mdx destination-file.mdx
 ---
@@ -62,7 +60,7 @@ export const myName = 'my name';
 export const myObject = { fruit: 'strawberries' };
 ```
 
-2. Import the snippet from your destination file and use the variable:
+1. Import the snippet from your destination file and use the variable:
 
 ```mdx destination-file.mdx
 ---
@@ -94,7 +92,7 @@ export const MyComponent = ({ title }) => (
   syntax when you can or use a default export if you need to use MDX.
 </Warning>
 
-2. Import the snippet into your destination file and pass in the props
+1. Import the snippet into your destination file and pass in the props
 
 ```mdx destination-file.mdx
 ---
