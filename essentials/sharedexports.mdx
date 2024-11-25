@@ -3,8 +3,6 @@ title: "📤 Shared Exports"
 description: "Learn how to use exports to update the shared dynamically!"
 ---
 
-
-
 | **Function or Event**                        | **Scope** | **Description**                                                                                    | **returns**                |
 | -------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------- | -------------------------- |
 | exports\['rsg-core']:AddItem(itemName, item) | Server    | Accepts an item name and item object - will add new entry to RSGCore.Shared.Items                  | boolean, string            |
@@ -36,4 +34,83 @@ description: "Learn how to use exports to update the shared dynamically!"
 RegisterNetEvent('RSGCore:Client:UpdateObject', function()
 	RSGCore = exports['rsg-core']:GetCoreObject()
 end)
+```
+
+<Info>
+  You must add this code to the server-side file of your resource when using these if you need the core object!
+</Info>
+
+```lua
+RegisterNetEvent('RSGCore:Server:UpdateObject', function()
+	if source ~= '' then return false end
+	RSGCore = exports['rsg-core']:GetCoreObject()
+end)
+```
+
+### RSGCore.Functions.AddJob
+
+```lua
+RSGCore.Functions.AddJob(jobName --[[string]], job --[[table]])
+
+-- Example
+RSGCore.Functions.AddJob('unemployed', {
+    label = 'Civilian',
+    defaultDuty = true,
+    offDutyPay = false,
+    grades = {
+        ['0'] = {
+            name = 'Freelancer',
+            payment = 3
+        }
+    }
+})
+```
+
+### exports\['rsg-core']:AddJob
+
+```lua
+exports['rsg-core']:AddJob(jobName --[[string]], job --[[table]])
+
+-- Example
+exports['rsg-core']:AddJob('unemployed', {
+    label = 'Civilian',
+    defaultDuty = true,
+    offDutyPay = false,
+    grades = {
+        ['0'] = {
+            name = 'Freelancer',
+            payment = 3
+        }
+    }
+})
+```
+
+### RSGCore.Functions.AddJobs
+
+```lua
+RSGCore.Functions.AddJobs(jobs --[[table]])
+
+-- Example
+RSGCore.Functions.AddJobs({
+    ['unemployed'] = {
+        label = 'Civilian',
+        defaultDuty = true,
+        offDutyPay = false,
+        grades = {
+            ['0'] = {
+                name = 'Freelancer',
+                payment = 3
+        }
+    },
+    ['mailman'] = {
+	label = 'Mailman',
+	defaultDuty = true,
+	offDutyPay = false,
+	grades = {
+            ['0'] = {
+                name = 'Mailman',
+                payment = 7
+        }
+    }
+})
 ```
