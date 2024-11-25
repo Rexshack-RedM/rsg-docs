@@ -63,8 +63,8 @@
       "group": "RSG References",
       "pages": [
         "api-reference/endpoint/exports",
-        "api-reference/endpoint/create",
-        "api-reference/endpoint/delete"
+        "api-reference/endpoint/server",
+        "api-reference/endpoint/client"
       ]
     }
   ],
