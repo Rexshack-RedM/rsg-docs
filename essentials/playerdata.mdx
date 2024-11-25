@@ -372,3 +372,73 @@ function RSGCore.Player.CreatePlayer(PlayerData, Offline)
     end
 end
 ```
+
+### RSGCore.Player.Save
+
+* Saves the player's info to the database
+
+```lua
+function RSGCore.Player.Save(source)
+    local ped = GetPlayerPed(source)
+    local pcoords = GetEntityCoords(ped)
+    local PlayerData = RSGCore.Players[source].PlayerData
+    if PlayerData then
+        MySQL.insert('INSERT INTO players (citizenid, cid, license, name, money, charinfo, job, gang, position, metadata) VALUES (:citizenid, :cid, :license, :name, :money, :charinfo, :job, :gang, :position, :metadata) ON DUPLICATE KEY UPDATE cid = :cid, name = :name, money = :money, charinfo = :charinfo, job = :job, gang = :gang, position = :position, metadata = :metadata', {
+            citizenid = PlayerData.citizenid,
+            cid = tonumber(PlayerData.cid),
+            license = PlayerData.license,
+            name = PlayerData.name,
+            money = json.encode(PlayerData.money),
+            charinfo = json.encode(PlayerData.charinfo),
+            job = json.encode(PlayerData.job),
+            gang = json.encode(PlayerData.gang),
+            position = json.encode(pcoords),
+            metadata = json.encode(PlayerData.metadata)
+        })
+        if GetResourceState('rsg-inventory') ~= 'missing' then exports['rsg-inventory']:SaveInventory(source) end
+        RSGCore.ShowSuccess(resourceName, PlayerData.name .. ' PLAYER SAVED!')
+    else
+        RSGCore.ShowError(resourceName, 'ERROR RSGCore.PLAYER.SAVE - PLAYERDATA IS EMPTY!')
+    end
+end
+```
+
+### RSGCore.Player.DeleteCharacter
+
+* Deletes a character and all corresponding data in the database
+
+```
+local playertables = { -- Add tables as needed
+    { table = 'players'},
+    { table = 'playeroutfit'},
+    { table = 'playerskins'},
+    { table = 'player_horses'},
+    { table = 'player_weapons'},
+    { table = 'address_book'},
+    { table = 'telegrams'},
+}
+
+function RSGCore.Player.DeleteCharacter(source, citizenid)
+    local license = RSGCore.Functions.GetIdentifier(source, 'license')
+    local result = MySQL.scalar.await('SELECT license FROM players where citizenid = ?', { citizenid })
+    if license == result then
+        local query = 'DELETE FROM %s WHERE citizenid = ?'
+        local tableCount = #playertables
+        local queries = table.create(tableCount, 0)
+
+        for i = 1, tableCount do
+            local v = playertables[i]
+            queries[i] = { query = query:format(v.table), values = { citizenid } }
+        end
+
+        MySQL.transaction(queries, function(result2)
+            if result2 then
+                TriggerEvent('rsg-log:server:CreateLog', 'joinleave', 'Character Deleted', 'red', '**' .. GetPlayerName(source) .. '** ' .. license .. ' deleted **' .. citizenid .. '**..')
+            end
+        end)
+    else
+        DropPlayer(source, Lang:t('info.exploit_dropped'))
+        TriggerEvent('rsg-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'white', GetPlayerName(source) .. ' Has Been Dropped For Character Deletion Exploit', true)
+    end
+end
+```
