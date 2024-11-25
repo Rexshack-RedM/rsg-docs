@@ -17,13 +17,13 @@
   },
   "topbarLinks": [
     {
-      "name": "Support",
-      "url": "mailto:hi@mintlify.com"
+      "name": "Discord",
+      "url": "https://discord.gg/rsg-redm-framework-914413479157448744"
     }
   ],
   "topbarCtaButton": {
-    "name": "Dashboard",
-    "url": "https://dashboard.mintlify.com"
+    "name": "Github",
+    "url": "https://github.com/Quantum-Projects-RedM"
   },
   "tabs": [
     {
