@@ -105,3 +105,270 @@ function RSGCore.Player.CheckPlayerData(source, PlayerData)
     return RSGCore.Player.CreatePlayer(PlayerData, Offline)
 end
 ```
+
+### RSGCore.Player.Logout
+
+* Saves player on logout and removes them from active players table
+
+```lua
+function RSGCore.Player.Logout(source)
+    TriggerClientEvent('RSGCore:Client:OnPlayerUnload', source)
+    TriggerEvent('RSGCore:Server:OnPlayerUnload', source)
+    TriggerClientEvent('RSGCore:Player:UpdatePlayerData', source)
+    Wait(200)
+    RSGCore.Players[source] = nil
+end
+```
+
+### RSGCore.Player.CreatePlayer
+
+* Creates a new character and sets default data (any function inside the self table can be called on the player after using the GetPlayer function)
+
+```
+function RSGCore.Player.CreatePlayer(PlayerData, Offline)
+    local self = {}
+    self.Functions = {}
+    self.PlayerData = PlayerData
+    self.Offline = Offline
+
+    function self.Functions.UpdatePlayerData()
+        if self.Offline then return end
+        TriggerEvent('RSGCore:Player:SetPlayerData', self.PlayerData)
+        TriggerClientEvent('RSGCore:Player:SetPlayerData', self.PlayerData.source, self.PlayerData)
+    end
+
+    function self.Functions.SetJob(job, grade)
+        job = job:lower()
+        grade = grade or '0'
+        if not RSGCore.Shared.Jobs[job] then return false end
+        self.PlayerData.job = {
+            name = job,
+            label = RSGCore.Shared.Jobs[job].label,
+            onduty = RSGCore.Shared.Jobs[job].defaultDuty,
+            type = RSGCore.Shared.Jobs[job].type or 'none',
+            grade = {
+                name = 'No Grades',
+                level = 0,
+                payment = 30,
+                isboss = false
+            }
+        }
+        local gradeKey = tostring(grade)
+        local jobGradeInfo = RSGCore.Shared.Jobs[job].grades[gradeKey]
+        if jobGradeInfo then
+            self.PlayerData.job.grade.name = jobGradeInfo.name
+            self.PlayerData.job.grade.level = tonumber(gradeKey)
+            self.PlayerData.job.grade.payment = jobGradeInfo.payment
+            self.PlayerData.job.grade.isboss = jobGradeInfo.isboss or false
+            self.PlayerData.job.isboss = jobGradeInfo.isboss or false
+        end
+
+        if not self.Offline then
+            self.Functions.UpdatePlayerData()
+            TriggerEvent('RSGCore:Server:OnJobUpdate', self.PlayerData.source, self.PlayerData.job)
+            TriggerClientEvent('RSGCore:Client:OnJobUpdate', self.PlayerData.source, self.PlayerData.job)
+        end
+
+        return true
+    end
+
+    function self.Functions.SetGang(gang, grade)
+        gang = gang:lower()
+        grade = grade or '0'
+        if not RSGCore.Shared.Gangs[gang] then return false end
+        self.PlayerData.gang = {
+            name = gang,
+            label = RSGCore.Shared.Gangs[gang].label,
+            grade = {
+                name = 'No Grades',
+                level = 0,
+                isboss = false
+            }
+        }
+        local gradeKey = tostring(grade)
+        local gangGradeInfo = RSGCore.Shared.Gangs[gang].grades[gradeKey]
+        if gangGradeInfo then
+            self.PlayerData.gang.grade.name = gangGradeInfo.name
+            self.PlayerData.gang.grade.level = tonumber(gradeKey)
+            self.PlayerData.gang.grade.isboss = gangGradeInfo.isboss or false
+            self.PlayerData.gang.isboss = gangGradeInfo.isboss or false
+        end
+
+        if not self.Offline then
+            self.Functions.UpdatePlayerData()
+            TriggerEvent('RSGCore:Server:OnGangUpdate', self.PlayerData.source, self.PlayerData.gang)
+            TriggerClientEvent('RSGCore:Client:OnGangUpdate', self.PlayerData.source, self.PlayerData.gang)
+        end
+
+        return true
+    end
+
+    function self.Functions.HasItem(items, amount)
+        return RSGCore.Functions.HasItem(self.PlayerData.source, items, amount)
+    end
+
+    function self.Functions.SetJobDuty(onDuty)
+        self.PlayerData.job.onduty = not not onDuty
+        TriggerEvent('RSGCore:Server:OnJobUpdate', self.PlayerData.source, self.PlayerData.job)
+        TriggerClientEvent('RSGCore:Client:OnJobUpdate', self.PlayerData.source, self.PlayerData.job)
+        self.Functions.UpdatePlayerData()
+    end
+
+    function self.Functions.SetPlayerData(key, val)
+        if not key or type(key) ~= 'string' then return end
+        self.PlayerData[key] = val
+        self.Functions.UpdatePlayerData()
+    end
+
+    function self.Functions.SetMetaData(meta, val)
+        if not meta or type(meta) ~= 'string' then return end
+        if meta == 'hunger' or meta == 'thirst' or meta == 'cleanliness' then
+            val = val > 100 and 100 or val
+        end
+        self.PlayerData.metadata[meta] = val
+        self.Functions.UpdatePlayerData()
+    end
+
+    function self.Functions.GetMetaData(meta)
+        if not meta or type(meta) ~= 'string' then return end
+        return self.PlayerData.metadata[meta]
+    end
+
+    function self.Functions.AddRep(rep, amount)
+        if not rep or not amount then return end
+        local addAmount = tonumber(amount)
+        local currentRep = self.PlayerData.metadata['rep'][rep] or 0
+        self.PlayerData.metadata['rep'][rep] = currentRep + addAmount
+        self.Functions.UpdatePlayerData()
+    end
+
+    function self.Functions.RemoveRep(rep, amount)
+        if not rep or not amount then return end
+        local removeAmount = tonumber(amount)
+        local currentRep = self.PlayerData.metadata['rep'][rep] or 0
+        if currentRep - removeAmount < 0 then
+            self.PlayerData.metadata['rep'][rep] = 0
+        else
+            self.PlayerData.metadata['rep'][rep] = currentRep - removeAmount
+        end
+        self.Functions.UpdatePlayerData()
+    end
+
+    function self.Functions.GetRep(rep)
+        if not rep then return end
+        return self.PlayerData.metadata['rep'][rep] or 0
+    end
+
+    function self.Functions.AddMoney(moneytype, amount, reason)
+        reason = reason or 'unknown'
+        moneytype = moneytype:lower()
+        amount = tonumber(amount)
+        if amount < 0 then return end
+        if not self.PlayerData.money[moneytype] then return false end
+        self.PlayerData.money[moneytype] = self.PlayerData.money[moneytype] + amount
+
+        if not self.Offline then
+            self.Functions.UpdatePlayerData()
+            if amount > 100000 then
+                TriggerEvent('rsg-log:server:CreateLog', 'playermoney', 'AddMoney', 'lightgreen', '**' .. GetPlayerName(self.PlayerData.source) .. ' (citizenid: ' .. self.PlayerData.citizenid .. ' | id: ' .. self.PlayerData.source .. ')** $' .. amount .. ' (' .. moneytype .. ') added, new ' .. moneytype .. ' balance: ' .. self.PlayerData.money[moneytype] .. ' reason: ' .. reason, true)
+            else
+                TriggerEvent('rsg-log:server:CreateLog', 'playermoney', 'AddMoney', 'lightgreen', '**' .. GetPlayerName(self.PlayerData.source) .. ' (citizenid: ' .. self.PlayerData.citizenid .. ' | id: ' .. self.PlayerData.source .. ')** $' .. amount .. ' (' .. moneytype .. ') added, new ' .. moneytype .. ' balance: ' .. self.PlayerData.money[moneytype] .. ' reason: ' .. reason)
+            end
+            TriggerClientEvent('hud:client:OnMoneyChange', self.PlayerData.source, moneytype, amount, false)
+            TriggerClientEvent('RSGCore:Client:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'add', reason)
+            TriggerEvent('RSGCore:Server:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'add', reason)
+        end
+
+        return true
+    end
+
+    function self.Functions.RemoveMoney(moneytype, amount, reason)
+        reason = reason or 'unknown'
+        moneytype = moneytype:lower()
+        amount = tonumber(amount)
+        if amount < 0 then return end
+        if not self.PlayerData.money[moneytype] then return false end
+        for _, mtype in pairs(RSGCore.Config.Money.DontAllowMinus) do
+            if mtype == moneytype then
+                if (self.PlayerData.money[moneytype] - amount) < 0 then
+                    return false
+                end
+            end
+        end
+        self.PlayerData.money[moneytype] = self.PlayerData.money[moneytype] - amount
+
+        if not self.Offline then
+            self.Functions.UpdatePlayerData()
+            if amount > 100000 then
+                TriggerEvent('rsg-log:server:CreateLog', 'playermoney', 'RemoveMoney', 'red', '**' .. GetPlayerName(self.PlayerData.source) .. ' (citizenid: ' .. self.PlayerData.citizenid .. ' | id: ' .. self.PlayerData.source .. ')** $' .. amount .. ' (' .. moneytype .. ') removed, new ' .. moneytype .. ' balance: ' .. self.PlayerData.money[moneytype] .. ' reason: ' .. reason, true)
+            else
+                TriggerEvent('rsg-log:server:CreateLog', 'playermoney', 'RemoveMoney', 'red', '**' .. GetPlayerName(self.PlayerData.source) .. ' (citizenid: ' .. self.PlayerData.citizenid .. ' | id: ' .. self.PlayerData.source .. ')** $' .. amount .. ' (' .. moneytype .. ') removed, new ' .. moneytype .. ' balance: ' .. self.PlayerData.money[moneytype] .. ' reason: ' .. reason)
+            end
+            TriggerClientEvent('hud:client:OnMoneyChange', self.PlayerData.source, moneytype, amount, true)
+            if moneytype == 'bank' then
+                TriggerClientEvent('rsg-phone:client:RemoveBankMoney', self.PlayerData.source, amount)
+            end
+            TriggerClientEvent('RSGCore:Client:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'remove', reason)
+            TriggerEvent('RSGCore:Server:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'remove', reason)
+        end
+
+        return true
+    end
+
+    function self.Functions.SetMoney(moneytype, amount, reason)
+        reason = reason or 'unknown'
+        moneytype = moneytype:lower()
+        amount = tonumber(amount)
+        if amount < 0 then return false end
+        if not self.PlayerData.money[moneytype] then return false end
+        local difference = amount - self.PlayerData.money[moneytype]
+        self.PlayerData.money[moneytype] = amount
+
+        if not self.Offline then
+            self.Functions.UpdatePlayerData()
+            TriggerEvent('rsg-log:server:CreateLog', 'playermoney', 'SetMoney', 'green', '**' .. GetPlayerName(self.PlayerData.source) .. ' (citizenid: ' .. self.PlayerData.citizenid .. ' | id: ' .. self.PlayerData.source .. ')** $' .. amount .. ' (' .. moneytype .. ') set, new ' .. moneytype .. ' balance: ' .. self.PlayerData.money[moneytype] .. ' reason: ' .. reason)
+            TriggerClientEvent('hud:client:OnMoneyChange', self.PlayerData.source, moneytype, math.abs(difference), difference < 0)
+            TriggerClientEvent('RSGCore:Client:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'set', reason)
+            TriggerEvent('RSGCore:Server:OnMoneyChange', self.PlayerData.source, moneytype, amount, 'set', reason)
+        end
+
+        return true
+    end
+
+    function self.Functions.GetMoney(moneytype)
+        if not moneytype then return false end
+        moneytype = moneytype:lower()
+        return self.PlayerData.money[moneytype]
+    end
+
+    function self.Functions.Save()
+        if self.Offline then
+            RSGCore.Player.SaveOffline(self.PlayerData)
+        else
+            RSGCore.Player.Save(self.PlayerData.source)
+        end
+    end
+
+    function self.Functions.Logout()
+        if self.Offline then return end
+        RSGCore.Player.Logout(self.PlayerData.source)
+    end
+
+    function self.Functions.AddMethod(methodName, handler)
+        self.Functions[methodName] = handler
+    end
+
+    function self.Functions.AddField(fieldName, data)
+        self[fieldName] = data
+    end
+
+    if self.Offline then
+        return self
+    else
+        RSGCore.Players[self.PlayerData.source] = self
+        RSGCore.Player.Save(self.PlayerData.source)
+        TriggerEvent('RSGCore:Server:PlayerLoaded', self)
+        self.Functions.UpdatePlayerData()
+    end
+end
+```
