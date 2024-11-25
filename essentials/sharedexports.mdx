@@ -176,3 +176,73 @@ RSGCore.Functions.AddGangs({
     }
 })
 ```
+
+### exports\['rsg-core']:AddGangs
+
+```lua
+exports['rsg-core']:AddGangs(gangs --[[table]])
+
+-- Example
+exports[rsg-core']:AddGangs({
+    ['odriscoll'] = {
+        label = 'O Driscoll Boys',
+        grades = {
+            ['0'] = {
+                name = 'Recruit'
+            }
+        }
+    },
+    ['lemoyne'] = {
+        label = 'Lemoyne Raiders',
+        grades = {
+            ['0'] = {
+                name = 'Recruit'
+            }
+        }
+    }
+})
+```
+
+## Import Items
+
+* This method allows for any resource to insert item data into the shared file for the core. That means that you can make a resource, and on load, make those items available for use. This can be accomplished through one the ways shown below. Utilizing the function requires importing the core but using the export does not
+
+### QBCore.Functions.AddItem
+
+```
+RSGCore.Functions.AddItem(itemName --[[string]], item --[[table]])
+
+-- Example
+RSGCore.Functions.AddItem('water', {
+    name = 'water',
+    label = 'Water',
+    weight = 100,
+    type = 'item',
+    image = 'water.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'For all the thirsty out there'
+})
+```
+
+### exports\['rsg-core']:AddItem
+
+```
+exports['rsg-core']:AddItem(itemName --[[string]], item --[[table]])
+
+-- Example
+exports['rsg-core']:AddItem('water', {
+    name = 'water',
+    label = 'Drinkable Water',
+    weight = 10,
+    type = 'item',
+    image = 'water.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'For all the thirsty out there'
+})
+```
+
+###
