@@ -3,3 +3,53 @@ title: "Installation"
 icon: "book"
 description: "RSG Framework Installation Info"
 ---
+
+## Generate a CFX Key
+
+Creating a license key for your server is easy!
+Just head over to [https://keymaster.fivem.net/](https://keymaster.fivem.net/) and click "New server" in the navigation menu.
+
+
+
+<Accordion title="CFX Site Tutorial" description="Image tutorial" defaultOpen={false} icon="lightbulb">
+  ![](CFXKEYTUT.png)
+  Once you've completed the form, you'll be redirected to your new server page where you can copy your license key like the image below&#x20;
+</Accordion>
+
+## Download the CFX Artifacts
+
+1. Go to[ Windows Server Build](https://runtime.fivem.net/artifacts/fivem/build_server_windows/master/) and download the Latest Recommended or Newest it don't really matter. (*I would recommend to make sure to have* [*WinRAR* ](https://www.rarlab.com/download.htm)*for this*)
+
+
+2. Open the file that you just downloaded that should be named something with **server.7z**
+
+
+3. Optionally create a folder in your `C:\` drive
+
+   1. Create folder `C:\SERVER_NAME`
+
+   2. Create folder `C:\SERVER_NAME\Artifacts`
+
+   3. Create folder `C:\SERVER_NAME\Server`
+
+4. Extract from the server.7z everything into the `C:\SERVER_NAME\Artifacts` folder we created should look something like this![](IMGTUT.png)
+
+## Starting your new RedM Server&#x20;
+
+1. Find the file called `FXServer.exe` and double click it , this will launch the TXAdmin launcher for you to get started
+
+2. In the Launch you should get your browser opened with TXAdmin asking you to link your account, link and proceed. You should see something like this below![](imagew.png)
+
+3. After you completed this you should see a TXAdmin Launch setup page follow the instructions on page for Server Name etc.
+
+
+4. Once you get to Deployement type you will choose **Remote URL Template** like below![](image2.avif)
+
+5. Enter the following Recipe link : &#x20;
+   [`https://raw.githubusercontent.com/Rexshack-RedM/txAdminRecipe/main/rsgcore.yaml`](https://raw.githubusercontent.com/Rexshack-RedM/txAdminRecipe/main/rsgcore.yaml)
+
+6. Now were almost ready to launch our newly created server, now enter the key you just made on the [Keymaster](https://keymaster.fivem.net/) and then select `Run Recipe` like so![](image3.avif)
+
+### Watch the below video of the Installation of a RSG RedM Server via txAdmin
+
+<iframe width="708" height="432" src="https://www.youtube.com/embed/2zFfizkDfoc" title="RDR2 :  RSG txAdmin RedM Server Setup (2024)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
