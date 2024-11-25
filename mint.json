@@ -60,7 +60,7 @@
       ]
     },
     {
-      "group": "Endpoint Examples",
+      "group": "RSG References",
       "pages": [
         "api-reference/endpoint/get",
         "api-reference/endpoint/create",
