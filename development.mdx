@@ -117,10 +117,111 @@ end
   Here are some sites to use for your development purposes
 </Accordion>
 
+## Loops
 
+* **Control your while loops and when they run**
+
+```lua
+local function exampleLoop()
+    CreateThread(function()
+        while listen do
+            print('running while loop only when needed')
+            Wait(1)
+        end
+    end)
+end
+
+local listen = false
+CreateThread(function()
+    LoopZone = CircleZone:Create(vector3(-851.63, 74.36, 51.86), 5.0, {
+        name = "ExampleLoop",
+        debugPoly = true,
+    })
+    LoopZone:onPlayerInOut(function(isPointInside)
+        if isPointInside then
+            listen = true
+            exampleLoop() -- Initiate loop
+        else
+            listen = false -- turns off when your outside the zone
+        end
+    end)
+end)
+```
+
+* **If you do have to create a thread that includes a "while" loop, always avoid using "while true do" if able. If you have to use this, follow the next tip, and it won’t impact performance as much**
+
+* **Control your thread times by using a variable that changes the wait time retroactively. So, you can set the thread wait time to say 1000ms which checks for your if statement every second and if it makes it into the statement, you can lower the wait time by just changing the variable value. Wait(sleep)**
+
+```lua
+CreateThread(function()
+    while true do
+        Wait(1)
+        inRange = false
+        local pos = GetEntityCoords(PlayerPedId())
+        if #(pos - vector3(-829.11, 75.03, 52.73)) < 10.0 then
+            inRange = true
+            print('Im in range and the loop runs faster')
+        else
+            print('Im not in range so i run only onces every 2.5 seconds')
+        end
+        if not inRange then
+            Wait(2500)
+        end
+    end
+end)
+```
+
+* **If you have job specific loops, make sure they only apply to players with that job. There's no reason for someone who is not a cop to be running a loop on their machine that does not apply to them**
+
+```lua
+local function exampleJobLoop()
+    local job = RSGCore.Functions.GetPlayerData().job.name
+    CreateThread(function()
+        while job == 'law' do
+            print('im a lawman!')
+            Wait(1)
+        end
+    end)
+end
+```
 
 ## Security
 
 * A surplus amount of security in a code is not a bad thing. Don't be afraid to add in multiple if checks or create random variables to pass through your events
 
 * Never do any type of transaction with the player regarding money or items on the client side of a resource
+
+## Event Handlers
+
+* **When setting variables inside your resource, handlers come in especially handy due to not needing to constantly run checks**
+
+```lua
+-- These are client-side examples
+
+local isLoggedIn = false
+local PlayerData = {}
+
+AddStateBagChangeHandler('isLoggedIn', nil, function(_, _, value) -- FiveM native method
+    if value then
+        isLoggedIn = true
+        PlayerData = RSGCore.Functions.GetPlayerData()
+    else
+        isLoggedIn = false
+        PlayerData = {}
+    end
+end)
+
+AddEventHandler('RSGCore:Client:OnPlayerLoaded', function() -- Don't use this with the native method
+    isLoggedIn = true
+    PlayerData = RSGCore.Functions.GetPlayerData()
+end)
+
+RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function() -- Don't use this with the native method
+    isLoggedIn = false
+    PlayerData = {}
+end)
+
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(val)
+    PlayerData = val
+end)
+```
