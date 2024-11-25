@@ -3,4 +3,78 @@ title: "❗ Commands"
 description: "A list of all the commands and their respective resource"
 ---
 
-##
+## RSGCore.Commands.Add
+
+This function allows you to register a command with a specified user level
+
+```lua
+RSGCore.Commands.Add(name, help, arguments, argsrequired, callback, permission, ...)
+```
+
+* name: `string`
+
+* help: `string`
+
+* arguments: `table`
+
+* argsrequired: `boolean`
+
+* callback: `function`
+
+* permission: `string`
+
+Example:
+
+```lua
+local arguments = {
+    { name = 'arg 1', help = 'This will give helpful hints on what arg is for' },
+    { name = 'arg 2', help = 'This will give helpful hints on what arg is for' }
+}
+
+local argsRequired = true -- if this is true the command won't work without args entered
+
+RSGCore.Commands.Add('test', 'Trigger a test command', arguments, argsRequired, function(source)
+    print('Congrats, you made a test command that anyone can trigger!')
+end, 'user')
+```
+
+## RSGCore.Commands.Refresh
+
+This function will trigger a refresh of all commands suggestions. This is helpful for when setting permissions to a higher level, it will refresh the suggestions list so the player can now see the new commands they have access to!
+
+```lua
+RSGCore.Commands.Refresh(source)
+```
+
+* source: `number`
+
+Example:
+
+```
+RegisterCommand('refreshCommands', function()
+    RSGCore.Commands.Refresh(source)
+    print('You have refreshed all command suggestions for yourself')
+end, true)
+```
+
+## AdminMenu
+
+<AccordionGroup>
+  <Accordion title="/tp [id / x ] [opt: y] [opt: z]- teleport to player or location" defaultOpen={false}>
+    Teleports you to either a player with the given `id` or to a given `x, y, z` location
+
+    **Permission level:** admin
+
+    * **id or x** - (required) The player id or x coordinate
+
+    * **y** - (optional) The y coordinate (required if using x for the first argument)
+
+    * **z** - (optional) The z coordinate (required if using x for the first argument)
+  </Accordion>
+
+  <Accordion title="/tpm - teleport to a marked location" defaultOpen={false}>
+    Teleports you to the marked location on the map.
+
+    **Permission level:** admin
+  </Accordion>
+</AccordionGroup>
