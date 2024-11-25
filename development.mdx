@@ -5,107 +5,122 @@ description: "Learn how to write optimized code!"
 
 ## General Practices
 
-<AccordionGroup>
-  <Accordion title="Variable Practices" defaultOpen={false}>
-    Localize as many functions and variables as possible. Lua can read them faster
-  </Accordion>
+* **Localize as many functions and variables as possible. Lua can read them faster**
 
-  <Accordion title="Native Usage" defaultOpen={false}>
-    Always replace `GetPlayerPed(-1)` with `PlayerPedId()`
-  </Accordion>
+```lua
+myVariable = false -- Don't use this
+local myVariable = false -- Use this
 
-  <Accordion title="Loops" defaultOpen={false}>
-    Control your while loops and when they run
-  </Accordion>
+function someFunction() -- Don't use this
+    print('Im a global function!')
+end
 
-  <Accordion title="Event Handlers" defaultOpen={false}>
-    When setting variables inside your resource, handlers come in especially handy due to not needing to constantly run checks
-  </Accordion>
-</AccordionGroup>
+local function someFunction() -- Use this
+    print('Im a local function!')
+end
+```
+
+* **Instead of using `table.insert` use `tableName[#tableName+1] = data`**
+
+```lua
+function someFunction()
+    local table = {}
+    table.insert(table, {}) -- Don't use this
+    table[#table+1] = {} -- Use this
+end
+```
+
+* **Instead of using `if something ~= nil` use `if something then`. This method checks for nil and/or false at the same time**
+
+```lua
+function someFunction()
+    local bool = nil
+    
+    if bool ~= nil then -- Don't use this
+        print('bool was not nil but also could be false!')
+    end
+    
+    if bool then -- Use this
+        print('bool was neither nil or false!')
+    end
+end
+```
+
+* **If you are creating a function or an event, make it so that it can be used in different scenarios with different variables. Keep it universal basically**
+
+```lua
+local function someFunction(param1, param2, param3)
+    print('Im a function that accepts 3 parameters which allows for multiple conditions!')
+    if param1 == 'something' then
+        print('I met condition number one!')
+    elseif param2 == 'somethingelse' then
+        print('I met condition number two!')
+    elseif param3 == 'somethingelsemore' then
+        print('I met condition number three!')
+    end
+end
+
+RegisterNetEvent('someEvent', function(param1, param2, param3)
+    print('Im an event that accepts 3 parameters which allows for multiple conditions!')
+    if param1 == 'something' then
+        print('I met condition number one!')
+    elseif param2 == 'somethingelse' then
+        print('I met condition number two!')
+    elseif param3 == 'somethingelsemore' then
+        print('I met condition number three!')
+    end
+end)
+```
+
+* **When writing code use what's known as "short returns" for failed conditions**
+
+```lua
+local function someFunction(param1, param2, param3)
+    if not param1 then return end
+    print('I met condition number one!')
+    if not param2 then return end
+    print('I met condition number two!')
+    if not param3 then return end
+    print('I met condition number three!')
+end
+```
+
+## Native Usage
+
+* **Always replace `GetPlayerPed(-1)` with `PlayerPedId()`**
+
+```lua
+local function someFunction()
+    local ped = GetPlayerPed(-1) -- Don't use this
+    local ped = PlayerPedId() -- Use this
+end
+```
+
+* **Always replace `GetDistanceBetweenCoords` with lua math aka `#(vector3 - vector3)`**
+
+```lua
+local function someFunction()
+    local ped = PlayerPedId()
+    local pCoords = GetEntityCoords(ped)
+    local coords = vector3(-29.53, -1103.67, 26.42)
+    
+    local dist = GetDistanceBetweenCoords(pCoords, coords, true) -- Don't use this
+    local dist = #(pCoords - coords) -- Use this
+    
+    if dist < 5 then
+        print('Im within 5 distance units of the coords!')
+    end
+end
+```
+
+<Accordion title="RedM Native Sites/Tools" defaultOpen={false}>
+  Here are some sites to use for your development purposes
+</Accordion>
+
+
 
 ## Security
 
 * A surplus amount of security in a code is not a bad thing. Don't be afraid to add in multiple if checks or create random variables to pass through your events
 
 * Never do any type of transaction with the player regarding money or items on the client side of a resource
-
-**Step 2**: Navigate to the docs directory (where the `mint.json` file is located) and execute the following command:
-
-```bash
-mintlify dev
-```
-
-A local preview of your documentation will be available at `http://localhost:3000`.
-
-### Custom Ports
-
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. To run Mintlify on port 3333, for instance, use this command:
-
-```bash
-mintlify dev --port 3333
-```
-
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
-
-```md
-Port 3000 is already in use. Trying 3001 instead.
-```
-
-## Mintlify Versions
-
-Please note that each CLI release is associated with a specific version of Mintlify. If your local website doesn't align with the production version, please update the CLI:
-
-<CodeGroup>
-  ```bash npm
-  npm i -g mintlify@latest
-  ```
-
-  ```bash yarn
-  yarn global upgrade mintlify
-  ```
-</CodeGroup>
-
-## Validating Links
-
-The CLI can assist with validating reference links made in your documentation. To identify any broken links, use the following command:
-
-```bash
-mintlify broken-links
-```
-
-## Deployment
-
-<Tip>
-  Unlimited editors available under the [Pro
-  Plan](https://mintlify.com/pricing) and above.
-</Tip>
-
-If the deployment is successful, you should see the following:
-
-<Frame>
-  <img src="/images/checks-passed.png" style={{ borderRadius: '0.5rem' }} />
-</Frame>
-
-## Code Formatting
-
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="Error: Could not load the &#x22;sharp&#x22; module using the darwin-arm64 runtime">
-    This may be due to an outdated version of node. Try the following:
-
-    1. Remove the currently-installed version of mintlify: `npm remove -g mintlify`
-
-    2. Upgrade to Node v19 or higher.
-
-    3. Reinstall mintlify: `npm install -g mintlify`
-  </Accordion>
-
-  <Accordion title="Issue: Encountering an unknown error">
-    Solution: Go to the root of your device and delete the \~/.mintlify folder. Afterwards, run `mintlify dev` again.
-  </Accordion>
-</AccordionGroup>
-
-Curious about what changed in the CLI version? [Check out the CLI changelog.](https://www.npmjs.com/package/mintlify?activeTab=versions)
