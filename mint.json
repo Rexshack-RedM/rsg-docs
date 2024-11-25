@@ -63,7 +63,6 @@
       "group": "RSG References",
       "pages": [
         "api-reference/endpoint/exports",
-        "api-reference/endpoint/server",
         "api-reference/endpoint/client"
       ]
     }
