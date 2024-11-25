@@ -119,9 +119,7 @@ RSGShared.Items = {
 
 ### Jobs
 
-* **Found in rsg-core/shared/jobs.lua**
-
-
+* **Found in rsg-core/shared/jobs.lua**a
 
 ```lua
 RSGShared = RSGShared or {}
@@ -153,4 +151,40 @@ RSGShared.Jobs = {
         },
     },
 }
+```
+
+### Vehicles
+
+* **Found in rsg-core/shared/vehicles.lua**
+
+```lua
+RSGShared = RSGShared or {}
+RSGShared.Vehicles = RSGShared.Vehicles or {}
+
+local Vehicles = {
+
+    CART01 = {                   -- Cart model/spawn name (string)
+        name = 'Wooden Cart 1',  -- Desired name/label for the cart (string)
+        brand = '?',             -- The brand of cart (string)
+        model = 'CART01',        -- Cart model/spawn name (string)
+        price = 10,              -- How much the cart costs at the stable (number)
+        category = 'carts',      -- The category the vehicle will display in at the stable (string)
+        hash = '-824257932',     -- Vehicle model number 
+        shop = 'cart',           -- The desired shop the cart is available for sale at (string)
+    },
+}
+
+for i = 1, #Vehicles do
+    RSGShared.Vehicles[Vehicles[i].model] = {
+        spawncode = Vehicles[i].model,
+        name = Vehicles[i].name,
+        brand = Vehicles[i].brand,
+        model = Vehicles[i].model,
+        price = Vehicles[i].price,
+        category = Vehicles[i].category,
+        hash = joaat(Vehicles[i].model),
+        type = Vehicles[i].type,
+        shop = Vehicles[i].shop
+    }
+end
 ```
