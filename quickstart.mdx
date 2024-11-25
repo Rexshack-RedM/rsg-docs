@@ -1,13 +1,71 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in under 5 minutes"
+title: "🔒Setting Permissions"
+description: "Learn how to configure permissions on your new RSGCore Framework!"
 ---
 
-## Setup your development
+
+
+---
+title: "🔒Setting Permissions"
+description: "Learn how to configure permissions on your new RSGCore Framework!"
+---
+
+<Accordion title="Ace Permissions?" defaultOpen={false} icon="shield">
+  Aces are the built-in permissions system provided by CFX. They allow for creating new nodes which have aces attached to them. This permission system consists of aces & principals. Essentially think of a tree with branches. We have our ace that we create and then each branch would be our principal which inherits the permissions of our ace
+</Accordion>
+
+<Check>
+  txAdmin should automatically set the server owner as the highest permission level
+</Check>
+
+## Server Config
 
 Learn how to update your docs locally and deploy them to the public.
 
 ### Edit and preview
+
+* At the bottom of your server.cfg file you will see a permissions section
+
+
+
+```lua
+## Permissions ##
+add_ace group.admin command allow # allow all commands
+add_principal identifier.license:XXXXXXXXXXXXXXX rsgcore.god # << your rockstar licence  
+add_principal identifier.license:XXXXXXXXXXXXXXX group.admin # << your rockstar licence
+
+# Resources
+add_ace resource.rsg-core command allow # Allow rsg-core to execute commands
+
+# Gods
+add_ace rsgcore.god command allow # Allow all commands
+
+# Inheritance
+add_principal rsgcore.god group.admin # Allow gods access to the main admin group used to get all default permissions
+add_principal rsgcore.god rsgcore.admin # Allow gods access to admin commands
+add_principal rsgcore.admin rsgcore.mod # Allow admins access to mod commands
+
+```
+
+## Different types of identifiers
+
+* **FiveM ID**
+
+* **Rockstar license (what rsgcore uses)**
+
+* **Discord ID**
+
+To get a FiveM or GTA license you can look up the player on your txAdmin web panel
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252Fj1dkqOaAZ0KYE4aE7nW9%252FUntitled-2.png%3Falt%3Dmedia%26token%3D4ae1c1a2-25a4-4189-8365-eee138d61990\&width=768\&dpr=1\&quality=100\&sign=6977bdc2\&sv=1)
+
+**If they are currently connected to the server, you will get all available identifiers**
+
+### After gathering the desired identifiers, go to your server.cfg and add the `Players` section as shown below
+
+<Info>
+  rsgcore.god and group.admin share the same permissions you can use either one.
+</Info>
 
 <AccordionGroup>
   <Accordion icon="github" title="Clone your docs locally">
