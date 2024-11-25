@@ -33,7 +33,7 @@
   ],
   "anchors": [
     {
-      "name": "Documentation",
+      "name": "Home",
       "icon": "book-open-cover",
       "url": "https://quantumprojects.mintlify.app/introduction"
     },
