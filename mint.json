@@ -54,12 +54,6 @@
       ]
     },
     {
-      "group": "API Documentation",
-      "pages": [
-        "api-reference/introduction"
-      ]
-    },
-    {
       "group": "RSG References",
       "pages": [
         "api-reference/endpoint/get",
