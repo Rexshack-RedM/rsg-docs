@@ -5,7 +5,23 @@ description: "Learn how to use exports to update the shared dynamically!"
 
 
 
-| **Function or Event**                         | **Scope** | **Description**                                                                   | **returns**     |
-| --------------------------------------------- | --------- | --------------------------------------------------------------------------------- | --------------- |
-| `exports['rsg-core']:AddItem(itemName, item)` | Server    | Accepts an item name and item object - will add new entry to RSGCore.Shared.Items | boolean, string |
-|                                               |           |                                                                                   |                 |
+| **Function or Event**                        | **Scope** | **Description**                                                                                    | **returns**                |
+| -------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------- | -------------------------- |
+| exports\['rsg-core']:AddItem(itemName, item) | Server    | Accepts an item name and item object - will add new entry to RSGCore.Shared.Items                  | boolean, string            |
+| exports\['rsg-core']:AddJob(jobName, job)    | Server    | Accepts an job name and job object - will add new entry to RSGCore.Shared.Jobs                     | boolean, string            |
+| exports\['rsg-core']:AddGang(gangName, gang) | Server    | Accepts an gang name and gang object - will add new entry to RSGCore.Shared.Gangs                  | boolean, string            |
+| exports\['rsg-core']:AddItems(items)         | Server    | Accepts a table or array - will loop through the table and add new entries to RSGCore.Shared.Items | boolean, string, errorItem |
+| exports\['rsg-core']:AddJobs(jobs)           | Server    | Accepts a table or array - will loop through the table and add new entries to RSGCore.Shared.Jobs  | boolean, string, errorItem |
+| exports\['rsg-core']:AddGangs(gangs)         | Server    | Accepts an item name and item object - will add new entry to RSGCore.Shared.Items                  | boolean, string, errorItem |
+| RSGCore.Functions.AddItem(itemName, item)    | Server    | Accepts an item name and item object - will add new entry to RSGCore.Shared.Items                  | boolean, string            |
+| RSGCore.Functions.AddJob(jobName, Job)       | Server    | Accepts an job name and job object - will add new entry to RSGCore.Shared.Jobs                     | boolean, string            |
+| RSGCore.Functions.AddGang(gangName, gang)    | Server    | Accepts an gang name and gang object - will add new entry to RSGCore.Shared.Gangs                  | boolean, string            |
+| RSGCore.Functions.AddItems(items)            | Server    | Accepts a table or array - will loop through the table and add new entries to RSGCore.Shared.Items | boolean, string, errorItem |
+| RSGCore.Functions.AddJobs(jobs)              | Server    | Accepts a table or array - will loop through the table and add new entries to RSGCore.Shared.Jobs  | boolean, string, errorItem |
+| RSGCore.Functions.AddGangs(gangs)            | Server    | Accepts a table or array - will loop through the table and add new entries to RSGCore.Shared.Gangs | boolean, string, errorItem |
+
+## Import Jobs
+
+* This method allows for any resource to insert job data into the shared file for the core. That means that you can make a resource, and on load, make those jobs available for use. This can be accomplished through one the ways shown below. Utilizing the function requires importing the core but using the export does not
+
+/warni
