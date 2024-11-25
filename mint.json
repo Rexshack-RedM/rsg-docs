@@ -49,7 +49,8 @@
       "pages": [
         "introduction",
         "quickstart",
-        "development"
+        "development",
+        "MiscGuides"
       ]
     },
     {
