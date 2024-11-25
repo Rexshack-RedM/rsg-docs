@@ -50,17 +50,12 @@
         "introduction",
         "quickstart",
         "development",
-        "MiscGuides"
+        "MiscGuides",
+        "essentials/installation"
       ]
     },
     {
       "group": "Documentation",
-      "pages": [
-        "essentials/installation"
-      ]
-    },
-      {
-      "group": "RSG Core",
       "pages": [
         "essentials/sharedexports",
         "essentials/shared
