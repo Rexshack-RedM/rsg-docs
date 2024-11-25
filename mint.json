@@ -56,7 +56,8 @@
     {
       "group": "Documentation",
       "pages": [
-        "essentials/installation"
+        "essentials/installation",
+        "essentials/shared"
       ]
     },
     {
