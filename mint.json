@@ -25,6 +25,12 @@
     "name": "Github",
     "url": "https://github.com/Rexshack-RedM"
   },
+    "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
   "anchors": [
     {
       "name": "Documentation",
