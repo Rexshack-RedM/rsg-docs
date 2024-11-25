@@ -188,3 +188,61 @@ for i = 1, #Vehicles do
     }
 end
 ```
+
+### Gangs
+
+* Found in rsg-core/shared/gangs.lua
+
+```lua
+RSGShared = RSGShared or {}
+RSGShared.Gangs = {
+    none = {
+        label = 'No Gang',
+        grades = {
+            ['0'] = {
+                name = 'Unaffiliated'
+            }
+        }
+    },
+    odriscoll = {              -- grade name (string)
+		label = 'O Driscoll Boys',  -- Label of the gang (string)
+		grades = {
+            ['0'] = {  -- grade (number)
+                name = 'Recruit'
+            },
+			['1'] = {
+                name = 'Enforcer'  -- Label of the gang grade (string)
+            },
+			['2'] = {
+                name = 'Shot Caller'
+            },
+			['3'] = {
+                name = 'Boss',
+				isboss = true   -- set this grade as a boss to access gang menu
+            },
+        },
+    }
+}
+```
+
+### Weapons
+
+* **Found in rsg-core/shared/weapons.lua**
+
+<Info>
+  Weapons are added in shared/items.lua as well!
+</Info>
+
+```lua
+RSGShared = RSGShared or {}
+RSGShared.Weapons = {
+    -- revolver
+	[`weapon_revolver_cattleman`] = {        -- Weapon hash 
+		 name = 'weapon_revolver_cattleman', -- Actual item name for spawning/giving/removing         
+		 label = 'Cattleman Revolver',       -- Label of item that is shown in inventory slot      
+		 weapontype = 'Revolver',     		 -- What type the item is (ex: revolver, shotgun)
+		 ammotype = 'AMMO_REVOLVER',         -- What type of ammo the item uses
+		 damagereason = 'Placeholder' 		 -- What type of damage the item does
+		}
+	}
+```
