@@ -99,3 +99,58 @@ end
 ### Items
 
 * **Found in rsg-core/shared/items.lua**
+
+
+
+```lua
+RSGShared.Items = {
+    bread      = { 
+        name = 'bread',     -- Actual item name for spawning/giving/removing      
+        label = 'Bread',    -- Label of item that is shown in inventory slot        
+        weight = 100,       -- How much the items weighs
+        type = 'item',      -- What type the item is (ex: item, weapon)
+        image = 'consumable_bread_roll.png',-- This item image that is found in rsg-inventory/html/images (must be same name as ['name'] from above)          
+        unique = false, -- Is the item unique (true|false) - Cannot be stacked & accepts item info to be assigned
+        useable = true, -- Is the item useable (true|false) - Must still be registered as useable
+        shouldClose = true, -- Should the item close the inventory on use (true|false)
+        description = 'Bread Roll' },-- Description of time in inventory
+    }
+```
+
+### Jobs
+
+* **Found in rsg-core/shared/jobs.lua**
+
+
+
+```lua
+RSGShared = RSGShared or {}
+RSGShared.ForceJobDefaultDutyAtLogin = true -- true: Force duty state to jobdefaultDuty | false: set duty state from database last saved
+RSGShared.Jobs = {
+
+    unemployed = {              -- job name (string)
+        label = 'Civilian',     -- job label (string)
+        defaultDuty = true,     -- enable/disable player being auto clocked-in (bool)
+        offDutyPay = false,     -- enable/disable player being paid offduty (bool)
+        grades = {
+            ['0'] = {            -- job grade (string)
+             name = 'Freelancer',-- job grade name (string)
+             payment =  3        -- paycheck amount (number)
+              },
+        },
+    },
+    vallaw = {
+        label = 'Valentine Law Enforcement',
+        type = 'leo',
+        defaultDuty = false,
+        offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 10 },
+            ['1'] = { name = 'Deputy', payment = 25 },
+            ['2'] = { name = 'Sheriff',
+             isboss = true,       -- set this grade as a boss=true to access boss menu
+             payment = 50 },
+        },
+    },
+}
+```
