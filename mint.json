@@ -23,7 +23,7 @@
   ],
   "topbarCtaButton": {
     "name": "Github",
-    "url": "https://github.com/Quantum-Projects-RedM"
+    "url": "https://github.com/Rexshack-RedM"
   },
   "tabs": [
     {
@@ -79,7 +79,7 @@
     }
   ],
   "footerSocials": {
-    "x": "https://x.com/mintlify",
+    "website": "https://rexshackgaming.tebex.io/category/supporter",
     "github": "https://github.com/Rexshack-RedM"
   }
 }
