@@ -64,7 +64,8 @@
       "pages": [
         "essentials/shared",
         "essentials/sharedexports",
-        "essentials/playerdata"
+        "essentials/playerdata",
+        "essentials/functions"
       ]
     },
     {
