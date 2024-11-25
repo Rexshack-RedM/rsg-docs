@@ -114,3 +114,65 @@ RSGCore.Functions.AddJobs({
     }
 })
 ```
+
+## Import Gangs
+
+* This method allows for any resource to insert gang data into the shared file for the core. That means that you can make a resource, and on load, make those gangs available for use. This can be accomplished through one the ways shown below. Utilizing the function requires importing the core but using the export does not
+
+### RSGCore.Functions.AddGang
+
+```lua
+RSGCore.Functions.AddGang(gangName --[[string]], gang --[[table]])
+
+-- Example
+RSGCore.Functions.AddGang('odriscoll', {
+    label = 'O Driscoll Boys',
+    grades = {
+        ['0'] = {
+            name = 'Recruit'
+        }
+    }
+})
+```
+
+### exports\['rsg-core']:AddGang
+
+```lua
+exports['rsg-core']:AddGang(gangName --[[string]], gang --[[table]])
+
+-- Example
+exports['rsg-core']:AddGang('odriscoll', {
+    label = 'O Driscoll Boys',
+    grades = {
+        ['0'] = {
+            name = 'Recruit'
+        }
+    }
+})
+```
+
+### QBCore.Functions.AddGangs
+
+```lua
+RSGCore.Functions.AddGangs(gangs --[[table]])
+
+-- Example
+RSGCore.Functions.AddGangs({
+    ['odriscoll'] = {
+        label = 'O Driscoll Boys',
+        grades = {
+            ['0'] = {
+                name = 'Recruit'
+            }
+        }
+    },
+    ['lemoyne'] = {
+        label = 'Lemoyne Raiders',
+        grades = {
+            ['0'] = {
+                name = 'Recruit'
+            }
+        }
+    }
+})
+```
