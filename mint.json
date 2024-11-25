@@ -62,7 +62,8 @@
     {
       "group": "RSG Core",
       "pages": [
-        "essentials/shared"
+        "essentials/shared",
+        "essentials/sharedexports"
       ]
     },
     {
