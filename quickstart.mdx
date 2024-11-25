@@ -3,12 +3,7 @@ title: "🔒Setting Permissions"
 description: "Learn how to configure permissions on your new RSGCore Framework!"
 ---
 
-
-
----
-title: "🔒Setting Permissions"
-description: "Learn how to configure permissions on your new RSGCore Framework!"
----
+***
 
 <Accordion title="Ace Permissions?" defaultOpen={false} icon="shield">
   Aces are the built-in permissions system provided by CFX. They allow for creating new nodes which have aces attached to them. This permission system consists of aces & principals. Essentially think of a tree with branches. We have our ace that we create and then each branch would be our principal which inherits the permissions of our ace
@@ -25,8 +20,6 @@ Learn how to update your docs locally and deploy them to the public.
 ### Edit and preview
 
 * At the bottom of your server.cfg file you will see a permissions section
-
-
 
 ```lua
 ## Permissions ##
@@ -67,64 +60,42 @@ To get a FiveM or GTA license you can look up the player on your txAdmin web pan
   rsgcore.god and group.admin share the same permissions you can use either one.
 </Info>
 
+## Setting users permissions in the server
+
+While you have permissions you can set users permissions either using commands or the admin menu
+
 <AccordionGroup>
-  <Accordion icon="github" title="Clone your docs locally">
-    During the onboarding process, we created a repository on your Github with
-    your docs content. You can find this repository on our
-    [dashboard](https://dashboard.mintlify.com). To clone the repository
-    locally, follow these
-    [instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
-    in your terminal.
+  <Accordion title="Setting permissions using the command" defaultOpen={false}>
+    * While in the server type in the command `/addpermission [id] [addpermissions]`
+
+    * It will look something like this `/addpermission 1 god`
   </Accordion>
 
-  <Accordion icon="rectangle-terminal" title="Preview changes">
-    Previewing helps you make sure your changes look as intended. We built a
-    command line interface to render these changes locally. 1. Install the
-    [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the
-    documentation changes locally with this command: `npm i -g mintlify`
-    2\. Run the following command at the root of your documentation (where
-    `mint.json` is): `mintlify dev`
+  <Accordion title="Setting permissions through the admin menu" defaultOpen={false}>
+    * In chat enter the command `/admin`
+
+    * Access the "Player Management" tab and select the player you want to give permissions to
+
+    * Locate a menu item called "Permissions"
+
+    * Set the user group for that user then press "submit"
   </Accordion>
 </AccordionGroup>
 
-### Deploy your changes
+## Allowing commands to specific permissions
 
-<AccordionGroup>
-  <Accordion icon="message-bot" title="Install our Github app">
-    Our Github app automatically deploys your changes to your docs site, so you
-    don't need to manage deployments yourself. You can find the link to install on
-    your [dashboard](https://dashboard.mintlify.com). Once the bot has been
-    successfully installed, there should be a check mark next to the commit hash
-    of the repo.
-  </Accordion>
+In rsg-core/config.lua find **`RSGConfig.Server.Permissions = {'god', 'admin', 'mod'}`**
 
-  <Accordion icon="rocket" title="Push your changes">
-    [Commit and push your changes to
-    Git](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository#about-git-push)
-    for your changes to update in your docs site. If you push and don't see that
-    the Github app successfully deployed your changes, you can also manually
-    update your docs through our [dashboard](https://dashboard.mintlify.com).
-  </Accordion>
-</AccordionGroup>
+![](RSC-CoreConfig.png)
 
-## Update your docs
+Here you can add more groups, lets say I wanted to make one for police I would have `RSGConfig.Server.Permissions = {'god', 'admin', 'mod', 'law'}`
 
-Add content directly in your files with MDX syntax and React components. You can use any of our components, or even build your own.
+Making a command for only leo can access would look like
 
-<CardGroup>
-  <Card title="Style Your Docs" icon="paintbrush" href="/settings/global">
-    Add flair to your docs with personalized branding.
-  </Card>
+```
+RSGCore.Commands.Add('cuff', 'Cuff Player', {}, false, function(source)
+-- Run code
+end, 'law')
+```
 
-  <Card title="Add API Endpoints" icon="square-code" href="/api-playground/configuration">
-    Implement your OpenAPI spec and enable API user interaction.
-  </Card>
-
-  <Card title="Integrate Analytics" icon="chart-mixed" href="/analytics/supported-integrations">
-    Draw insights from user interactions with your documentation.
-  </Card>
-
-  <Card title="Host on a Custom Domain" icon="browser" href="/settings/custom-domain/subdomain">
-    Keep your docs on your own website's subdomain.
-  </Card>
-</CardGroup>
+So now when you add this command using the qbcore function it will automatically generate an ace called rsgcore.law with an ace of command.cuff! Now you can add a principal of a player with `add_principal identifier.license:xxxx rsgcore.law` and now that command will be restricted to only those with that permission as well as remove the chat suggestion for anyone without this permission! Imagine if you used this when setting a players job or when a player clocked in/out to dynamically remove the permission. This also completely eliminates the need to ever check job permissions on a command like this because the command itself will already be restricted
