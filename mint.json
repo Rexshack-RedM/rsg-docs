@@ -56,7 +56,12 @@
     {
       "group": "Documentation",
       "pages": [
-        "essentials/installation",
+        "essentials/installation"
+      ]
+    },
+    {
+      "group": "RSG Core",
+      "pages": [
         "essentials/shared"
       ]
     },
