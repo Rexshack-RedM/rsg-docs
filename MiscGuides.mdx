@@ -1,4 +1,179 @@
 ---
-title: "New file"
-description: "Description of your new file."
+title: "📑 Misc Guides"
+description: "Extra guides and tools are listed here"
 ---
+
+## Getting the Players
+
+**To get a list of players on the server we must use either a native that is like this**
+
+```lua
+for _, player in ipairs(GetActivePlayers()) do
+local ped = GetPlayerPed(player)
+-- do stuff
+end
+```
+
+**Using the RSG function you can do it like this**
+
+```lua
+for _, player in pairs(RSGCore.Functions.GetPlayers()) do
+local ped = GetPlayerPed(player)
+-- do stuff
+end
+```
+
+## Database Connection
+
+<Info>
+  txAdmin does this automatically already but if needed then in your server.cfg put this and fill it in with the correct information. For the database wrapper [oxmysql](https://github.com/overextended/oxmysql)
+</Info>
+
+### Installation[​](https://overextended.github.io/docs/oxmysql/#installation)
+
+* Download the [latest build](https://github.com/overextended/oxmysql/releases/latest) of oxmysql (not the source code).
+
+* Extract the contents of the archive to your resources folder.
+
+* Start the resource near the top of your resources in your `server.cfg`.
+
+* If you have a lot of streamed assets, load them first to prevent timing out the connection.
+
+### [](https://docs.qbcore.org/qbcore-documentation/guides/miscellaneous-guides#configuration)Configuration[​](https://overextended.github.io/docs/oxmysql/#configuration)
+
+You can change the configuration settings by using convars inside your `server.cfg`. Reference the following for an idea of how to set your connection options. You must include one of the following lines, adjusted for your connection and database settings.
+
+```
+set mysql_slow_query_warning 150set mysql_debug true
+```
+
+Certain special characters are reserved or blocked and may cause issues when used in your password.
+For more optional settings (such as multiple statements) you can reference [pool.d.ts](https://github.com/sidorares/node-mysql2/blob/master/typings/mysql/lib/Pool.d.ts#L10) and [connection.d.ts](https://github.com/sidorares/node-mysql2/blob/master/typings/mysql/lib/Connection.d.ts#L8).
+
+You can also add the following convars if you require extra information when testing queries.
+
+```
+set mysql_slow_query_warning 150set mysql_debug true
+```
+
+## Server.cfg
+
+Setting up your server.cfg is really simple and is already completed upon a successful txAdmin recipe install! You can also find additional information on server configuration files [**here**](https://docs.fivem.net/docs/server-manual/setting-up-a-server/)**.** In case of a manual install then here's a template to use
+
+```
+## server main settings
+{{serverEndpoints}}
+sv_maxclients {{maxClients}}
+set gamename rdr3
+set sv_enforceGameBuild 1491
+
+# https://docs.fivem.net/docs/server-manual/server-commands/#sv_purelevel-level
+#sets sv_pureLevel 1
+#sets sv_pureLevel 2
+
+# locale config
+setr rsg_locale "en"
+setr ox:locale en
+
+## key license settings
+sv_licenseKey "{{svLicense}}"
+set steam_webApiKey "none"
+
+## database settings
+set mysql_connection_string "{{dbConnectionString}}"
+set mysql_slow_query_warning 300
+
+## server settings
+sv_hostname "{{serverName}} built with {{recipeName}} by {{recipeAuthor}}!"
+sets sv_projectName "[{{recipeName}}] {{serverName}}"
+sets sv_projectDesc "{{recipeDescription}}"
+sets locale "en-US"
+load_server_icon myLogo.png
+sets Framework "RSG"
+sets Framework Discord "https://discord.gg/eW3ADkf4Af"
+sets banner_detail "link"
+sets banner_connecting  "link"
+sets Discord "link"
+sets Developer "link"
+sets tags "rsg,roleplay"
+sv_endpointprivacy true
+
+set txAdmin-menuPtfxDisable true # Disable TXAdmin NoClip Particle Effect
+set sv_experimentalNetGameEventHandler false
+
+# https://v6.mantine.dev/theming/colors/#default-colors
+setr ox:primaryColor red
+setr ox:primaryShade 8
+
+# use target
+setr UseTarget false
+
+# default resources
+ensure mapmanager
+ensure spawnmanager
+ensure sessionmanager-rdr3
+#ensure basic-gamemode
+#ensure hardcap
+
+# database and library
+ensure oxmysql
+ensure ox_lib
+
+# resources
+ensure rsg-core
+ensure rsg-multicharacter
+ensure rsg-spawn
+ensure rsg-menubase
+ensure ox_target
+ensure ip-chat
+ensure [standalone]
+ensure [framework]
+ensure [mapmods]
+
+## weathersync permissions
+exec resources/[standalone]/weathersync/permissions.cfg
+
+## Permissions ##
+add_ace group.admin command allow # allow all commands
+add_principal identifier.license:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx rsgcore.god # << your rockstar licence
+add_principal identifier.license:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx group.admin # << your rockstar licence
+
+# Resources
+add_ace resource.rsg-core command allow # Allow rsg-core to execute commands
+
+# Gods
+add_ace rsgcore.god command allow # Allow all commands
+
+# Inheritance
+add_principal rsgcore.god group.admin # Allow gods access to the main admin group used to get all default permissions
+add_principal rsgcore.god rsgcore.admin # Allow gods access to admin commands
+add_principal rsgcore.admin rsgcore.mod # Allow admins access to mod commands
+```
+
+## GitHub Pull Request
+
+**<u>Github</u>:** [RSG RedM Framework](https://github.com/Rexshack-RedM)
+
+* Visit the resource you would like to propose changes on
+
+* Navigate to the exact file within that resource
+
+* Click on the pencil icon and you will be able to make edits to the code
+
+* Once you are satisfied with your edits, scroll down to the box labeled "Propose Changes"
+
+* Write a title and short description of what the changes are
+
+* Once that's filled out, press the green "Propose Changes" button
+
+* You will see a screen showing your edits compared to the existing code
+
+* If you are satisfied with the edits shown, press the green "Create Pull Request" button
+
+* Fill in the title and description if necessary
+
+* Click on the green "Create Pull Request" button and it's finished!
+
+<Check>
+  If you have email notifications enabled, you will get any updates on the pull request by email
+</Check>
