@@ -50,13 +50,13 @@
         "introduction",
         "quickstart",
         "development",
-        "MiscGuides",
-        "essentials/installation"
+        "MiscGuides"
       ]
     },
     {
       "group": "Documentation",
       "pages": [
+        "essentials/installation"
         "essentials/sharedexports",
         "essentials/shared
       ]
