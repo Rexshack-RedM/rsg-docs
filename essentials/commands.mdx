@@ -89,4 +89,28 @@ end, true)
 
     **Permission level:** admin
   </Accordion>
+
+  <Accordion title="/addpermission [id] [permission] - gives a player permission" defaultOpen={false}>
+    Toggles Player vs Player mode on the server
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/removepermission [id] [permission] - removes a player permission" defaultOpen={false}>
+    Removes the given `permission` from the player with the given `id`. The player must be online.
+
+    **Permission level:** god
+  </Accordion>
+
+  <Accordion title="/openserver - open server for everyone" defaultOpen={false}>
+    Opens the server allowing everyone to join.
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/closeserver - close the server for people without permission" defaultOpen={false}>
+    Closes the server for people without the correct permission. Kicks any players currently online without the required permission giving the `reason` in the kick message.
+
+    **Permission level:** admin
+  </Accordion>
 </AccordionGroup>
