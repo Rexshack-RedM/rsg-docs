@@ -65,7 +65,8 @@
         "essentials/shared",
         "essentials/sharedexports",
         "essentials/playerdata",
-        "essentials/prompts"
+        "essentials/prompts",
+        "essentials/commands"
       ]
     },
     {
