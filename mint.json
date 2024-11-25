@@ -60,6 +60,12 @@
         "essentials/shared"
       ]
     },
+      {
+      "group": "RSG Core",
+      "pages": [
+        "essentials/sharedexports"
+      ]
+    },
     {
       "group": "RSG References",
       "pages": [
