@@ -173,4 +173,106 @@ end, true)
 
     **Permission level:** user
   </Accordion>
+
+  <Accordion title="/setgang [id] [gang] [grade] - sets a players gang" defaultOpen={false}>
+    Sets a player with the given `id` to be part of the given `gang` with the given `grade`
+
+    **Permission level:** admin
+
+    * **id** - (required) The `id` of the player
+
+    * **gang** - (required) The gang name
+
+    * **grade** (required) The gang grade
+  </Accordion>
+
+  <Accordion title="/clearinv [opt: id] - clears a players inventory" defaultOpen={false}>
+    Sets a player with the given `id` to be part of the given `gang` with the given `grade`
+
+    **Permission level:** admin
+
+    * **id** - (required) The `id` of the player
+
+    * **gang** - (required) The gang name
+
+    * **grade** (required) The gang grade
+
+
+  </Accordion>
+
+  <Accordion title="/giveitem [id] [item] [amount] - gives a player items" defaultOpen={false}>
+    Give An Item to player
+
+    **Permission level:** admin
+
+    * **id** - The id of a player
+
+    * **item** - The itenm of shared/items.lua
+
+    * **amount** - (optional) The amount item receive of a player
+
+
+  </Accordion>
+
+  <Accordion title="/randomitems - give random items to players inventory" defaultOpen={false}>
+    Give Random Items
+
+    **Permission level:** god
+  </Accordion>
+
+  <Accordion title="/resetinv [type] [id] -reset inventory" defaultOpen={false}>
+    Reset the inventory of type and id/plate (ID of stash or license plate)
+
+    * **type** - The type of stash / trunk / glovebox
+
+    * **id** - The id of stash or license plate
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/id - notify of your server ID" defaultOpen={false}>
+    Notify you of your server ID
+
+    **Permission level:** user
+  </Accordion>
+
+  <Accordion title="/cid - notify you of your Citizen ID" defaultOpen={false}>
+    Notify you of your citizen ID
+
+    **Permission level:** user
+  </Accordion>
+
+  <Accordion title="/rob - rob a player" defaultOpen={false}>
+    Stealing between players, when the target has his hands raised
+
+    **Permission level:** user
+  </Accordion>
+
+  <Accordion title="/loadskin - Refresh Skin" defaultOpen={false}>
+    Refresh Skin player
+
+    **Permission level:** user
+  </Accordion>
+
+  <Accordion title="/customweapon - custom weapon skin" defaultOpen={false}>
+    Access to the menu of components, materials and engravings
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/w_inspect - inspect a weapon" defaultOpen={false}>
+    Access to the info of weapon
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/loadweapon - Refresh skin weapon player" defaultOpen={false}>
+    Refresh Skin wepaon player
+
+    **Permission level:** user
+  </Accordion>
+
+  <Accordion title="/addressbook - Player addressbook" defaultOpen={false}>
+
+  </Accordion>
 </AccordionGroup>
