@@ -72,7 +72,7 @@
     {
       "group": "RSG References",
       "pages": [
-        "api-reference/endpoint/clientevent",
+        "api-reference/endpoint/clientreference",
         "api-reference/endpoint/server"
       ]
     }
