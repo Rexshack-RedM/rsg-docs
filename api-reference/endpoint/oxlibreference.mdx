@@ -7,8 +7,21 @@ description: "A standalone library for providing easily reusable code as importa
 
 * Custom notifications with a lot of styling options.
 
+Example:
+
 <CodeGroup>
-  ```javascript helloWorld.js
-  console.log("Hello World");
+  ```lua client.lua
+ lib.notify({ title = 'SOME TITLE', type = 'success', icon = 'SOME FAS FA ICON', iconAnimation = 'shake', duration = 7000 })
+  ```
+  ```lua server.lua
+  TriggerClientEvent('ox_lib:notify', src, {title = 'SOME TITLE', type = 'error', icon = 'SOME FAS FA ICON', iconAnimation = 'shake', duration = 7000 })
   ```
 </CodeGroup>
+
+<info>
+Always try to use language locales! e.g. 
+```lua
+lib.notify({ title = locale('SOMETITLE'), type = 'success'})
+```
+</info>
+
