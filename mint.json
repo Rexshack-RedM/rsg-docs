@@ -32,7 +32,7 @@
     },
     {
       "name": "Native Research",
-      "url": "snippets"
+      "url": "native"
     }
   ],
   "anchors": [
@@ -91,7 +91,7 @@
     {
       "group": "Quick Native Research",
       "pages": [
-        "snippets/snippet-intro"
+        "native/snippet-intro"
       ]
     }
   ],
