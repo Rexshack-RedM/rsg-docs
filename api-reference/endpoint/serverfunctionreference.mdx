@@ -1,0 +1,242 @@
+---
+title: "🖥️ Server Function Reference"
+description: "Learn about and how to use common core server functions!"
+---
+
+### RSGCore.Functions.GetCoords
+
+* Get the coords of a passed entity
+
+```lua
+---@param entity number
+---@return vector4
+function RSGCore.Functions.GetCoords(entity)
+    local coords = GetEntityCoords(entity, false)
+    local heading = GetEntityHeading(entity)
+    return vector4(coords.x, coords.y, coords.z, heading)
+end
+
+-- Example
+
+local ped = GetPlayerPed(source)
+local coords = RSGCore.Functions.GetCoords(ped)
+print(coords)
+```
+
+### RSGCore.Functions.GetIdentifier
+
+* Get the identifier of a passed entity
+
+```lua
+---@param source any
+---@param idtype string
+---@return string?
+function RSGCore.Functions.GetIdentifier(source, idtype)
+    return GetPlayerIdentifierByType(source, idtype or 'license')
+end
+
+-- Example
+
+local identifier = RSGCore.Functions.GetIdentifier(source, 'license')
+print(identifier)
+
+OR -- defaults to the identifier in the config of qb-core
+
+local identifier = RSGCore.Functions.GetIdentifier(source)
+print(identifier)
+```
+
+### RSGCore.Functions.GetSource
+
+* Gets a players server id (source). Returns 0 if no player is found.
+
+```lua
+---@param identifier string
+---@return number
+function RSGCore.Functions.GetSource(identifier)
+    for src, _ in pairs(RSGCore.Players) do
+        local idens = GetPlayerIdentifiers(src)
+        for _, id in pairs(idens) do
+            if identifier == id then
+                return src
+            end
+        end
+    end
+    return 0
+end
+
+-- Example
+
+local identifier = RSGCore.Functions.GetIdentifier(source, 'license')
+local playerSource = RSGCore.Functions.GetSource(identifier)
+print(playerSource)
+```
+
+### RSGCore.Functions.GetPlayer
+
+* Get player with given server id (source)
+
+```lua
+---@param source any
+---@return table
+function RSGCore.Functions.GetPlayer(source)
+    if type(source) == 'number' then
+        return RSGCore.Players[source]
+    else
+        return RSGCore.Players[RSGCore.Functions.GetSource(source)]
+    end
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+print(RSGCore.Debug(Player))
+
+OR -- access some player data
+
+local Player = RSGCore.Functions.GetPlayer(source)
+print(Player.PlayerData.citizenid)
+```
+
+### RSGCore.Functions.GetPlayerByCitizenId
+
+* Get player by citizen id
+
+```lua
+---@param citizenid string
+---@return table?
+function RSGCore.Functions.GetPlayerByCitizenId(citizenid)
+    for src in pairs(RSGCore.Players) do
+        if RSGCore.Players[src].PlayerData.citizenid == citizenid then
+            return RSGCore.Players[src]
+        end
+    end
+    return nil
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayerByCitizenId('ONZ55343')
+print(RSGCore.Debug(Player))
+
+OR -- access some player data
+
+local Player = RSGCore.Functions.GetPlayerByCitizenId('ONZ55343')
+print(Player.PlayerData.license)
+```
+
+### RSGCore.Functions.GetPlayers
+
+* Get all players. Returns the server ids of all players.
+
+```lua
+---@return table
+function RSGCore.Functions.GetPlayers()
+    local sources = {}
+    for k in pairs(RSGCore.Players) do
+        sources[#sources + 1] = k
+    end
+    return sources
+end
+
+-- Example
+
+local Players = RSGCore.Functions.GetPlayers()
+print(RSGCore.Debug(Players))
+```
+
+### RSGCore.Functions.GetRSGPlayers
+
+* Will return an array of RSG Player class instances unlike the GetPlayers() wrapper which only returns IDs
+
+```lua
+---@return table
+function RSGCore.Functions.GetRSGPlayers()
+    return RSGCore.Players
+end
+
+-- Example
+
+local Players = RSGCore.Functions.GetRSGPlayers()
+print(RSGCore.Debug(Players))
+```
+
+### RSGCore.Functions.CreateCallBack
+
+* Create Server Callback.
+
+```lua
+---@param name string
+---@param cb function
+function RSGCore.Functions.CreateCallback(name, cb)
+    RSGCore.ServerCallbacks[name] = cb
+end
+
+-- Example
+
+RSGCore.Functions.CreateCallback('callbackName', function(source, cb)
+    cb('Ok')
+end)
+```
+
+### RSGCore.Functions.CreateUseableItem
+
+* Create a usable item
+
+```lua
+---@param item string
+---@param data function
+function RSGCore.Functions.CreateUseableItem(item, data)
+    RSGCore.UsableItems[item] = data
+end
+
+-- Example
+
+RSGCore.Functions.CreateUseableItem('my_cool_item', function(source, item)
+	local Player = RSGCore.Functions.GetPlayer(source)
+	if not Player.Functions.GetItemByName(item.name) then return end
+	-- Trigger code here for what item should do
+end)
+```
+
+### RSGCore.Functions.CanUseItem
+
+* Check if a player can use an item
+
+```lua
+---@param item string
+---@return any
+function RSGCore.Functions.CanUseItem(item)
+    return RSGCore.UsableItems[item]
+end
+
+-- Example
+
+local canUse = RSGCore.Functions.CanUseItem('my_cool_item')
+print(canUse)
+
+OR
+
+local canUse = RSGCore.Functions.CanUseItem('my_cool_item')
+if not canUse then return end
+-- Trigger code here
+```
+
+### RSGCore.Functions.UseItem
+
+* Use an item
+
+```lua
+---@param source any
+---@param item string
+function RSGCore.Functions.UseItem(source, item)
+    if GetResourceState('rsg-inventory') == 'missing' then return end
+    exports['rsg-inventory']:UseItem(source, item)
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player.Functions.GetItemByName('my_cool_item') then return end
+RSGCore.Functions.UseItem(source, 'my_cool_item')
+```
