@@ -114,10 +114,52 @@ RegisterNetEvent('RSGCore:Player:SetPlayerData', function(val)
 end)
 ```
 
-### RSGCore:Notify
+### RSGCore:Client:UseItem
 
+| **Arguments** | **Type** | **Required** | **Default** |
+| ------------- | -------- | ------------ | ----------- |
+| item name     | string   | yes          | none        |
 
+<Info>
+  Client example (must have the item in your inventory)
+</Info>
 
-|   |   |
-| - | - |
-|   |   |
+```lua
+-- /useitem bread 1
+
+RegisterCommand('useitem', function(_, args)
+    local item = {
+        name = args[1],
+        amount = tonumber(args[2])
+    }
+    TriggerEvent('RSGCore:Client:UseItem', item)
+end)
+```
+
+<Info>
+  Server example (must have the item in your inventory)
+</Info>
+
+```lua
+-- /useitem bread 1
+
+RegisterCommand('useitem', function(source, args)
+    local item = {
+        name = args[1],
+        amount = tonumber(args[2])
+    }
+    TriggerClientEvent('RSGCore:Client:UseItem', source, item)
+end)
+```
+
+### RSGCore:Client:UpdateObject
+
+<Check>
+  This event must be used as a handler when using Shared Exports because it refreshes the core object in your resource
+</Check>
+
+```lua
+RegisterNetEvent('RGCore:Client:UpdateObject', function()
+    RSGCore = exports['rsg-core']:GetCoreObject()
+end)
+```
