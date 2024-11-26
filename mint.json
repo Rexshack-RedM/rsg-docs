@@ -77,6 +77,12 @@
         "api-reference/endpoint/servereventreference",
         "api-reference/endpoint/serverfunctionreference"
       ]
+    },
+    {
+      "group": "Ox Lib References",
+      "pages": [
+        "api-reference/endpoint/oxlibreference"
+      ]
     }
   ],
   "footerSocials": {
