@@ -73,7 +73,9 @@
       "group": "RSG References",
       "pages": [
         "api-reference/endpoint/clienteventreference",
-        "api-reference/endpoint/servereventreference"
+        "api-reference/endpoint/clientfunctionreference",
+        "api-reference/endpoint/servereventreference",
+        "api-reference/endpoint/serverfunctionreference"
       ]
     }
   ],
