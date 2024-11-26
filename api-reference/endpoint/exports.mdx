@@ -68,7 +68,7 @@ end)
   Server example
 </Info>
 
-```
+```lua
 -- /spawnveh wagon
 
 RegisterCommand('spawnveh', function(source, args)
@@ -89,7 +89,7 @@ end)
   Client example
 </Info>
 
-```
+```lua
 RegisterCommand('deleteveh', function(_, args)
     TriggerEvent('RSGCore:Command:DeleteVehicle')
 end)
@@ -99,7 +99,7 @@ end)
   Server example
 </Info>
 
-```
+```lua
 RegisterCommand('deleteveh', function(source, args)
     TriggerClientEvent('RSGCore:Command:DeleteVehicle', source)
 end)
@@ -111,7 +111,7 @@ end)
   This event can be used as an event handler to trigger code because it indicates that the players data has changed!
 </Check>
 
-```
+```lua
 RegisterNetEvent('RSGCore:Player:SetPlayerData', function(val)
     PlayerData = val
     print(RSGCore.Debug(PlayerData))
