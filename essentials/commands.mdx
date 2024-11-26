@@ -113,4 +113,52 @@ end, true)
 
     **Permission level:** admin
   </Accordion>
+
+  <Accordion title="/wagon [mode] - spawns a wagon" defaultOpen={false}>
+    Spawns a wagon of the given `model` type.
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/horse [model] - spawns a horse" defaultOpen={false}>
+    Spawns a wagon of the given `model` type.
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/dv - delete vehicle" defaultOpen={false}>
+    Deletes the vehicle you are sitting in or deletes all vehicles within 5.0 units of your position.
+
+    **Permission level:** admin
+  </Accordion>
+
+  <Accordion title="/givemoney [id] [type] [amount] - give money to the player" defaultOpen={false}>
+    Gives money to a player
+
+    **Permission level:** admin
+
+    * **id** - (required) The `id` of the player
+
+    * **type** - (required) The money type \[cash, bank etc...]
+
+    * **amount** - (required) The amount to give
+  </Accordion>
+
+  <Accordion title="/setmoney [id] [type] [amount] - set the amount a player has" defaultOpen={false}>
+    Sets the amount of money a player has.
+
+    **Permission level:** admin
+
+    * **id** - (required) The `id` of the player
+
+    * **type** - (required) The money type \[cash, bank etc...]
+
+    * **amount** - (required) The amount to set
+  </Accordion>
+
+  <Accordion title="/job - display your current job" defaultOpen={false}>
+    Displays your current job name and grade
+
+    **Permission level:** user
+  </Accordion>
 </AccordionGroup>
