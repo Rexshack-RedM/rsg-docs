@@ -74,12 +74,6 @@
       ]
     },
     {
-      "group": "Quick Native Research",
-      "pages": [
-        "snippets/snippet-intro"
-      ]
-    },
-    {
       "group": "RSG References",
       "pages": [
         "api-reference/endpoint/clienteventreference",
@@ -92,6 +86,12 @@
       "group": "Ox Lib References",
       "pages": [
         "api-reference/endpoint/oxlibreference"
+      ]
+    },
+    {
+      "group": "Quick Native Research",
+      "pages": [
+        "snippets/snippet-intro"
       ]
     }
   ],
