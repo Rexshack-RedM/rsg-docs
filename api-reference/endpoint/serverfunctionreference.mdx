@@ -40,7 +40,7 @@ end
 local identifier = RSGCore.Functions.GetIdentifier(source, 'license')
 print(identifier)
 
-OR -- defaults to the identifier in the config of qb-core
+OR -- defaults to the identifier in the config of rsg-core
 
 local identifier = RSGCore.Functions.GetIdentifier(source)
 print(identifier)
