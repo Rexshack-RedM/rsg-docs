@@ -29,6 +29,10 @@
     {
       "name": "API Reference",
       "url": "api-reference"
+    },
+    {
+      "name": "Native Research",
+      "url": "snippets"
     }
   ],
   "anchors": [
@@ -54,7 +58,7 @@
       ]
     },
     {
-      "group": "Documentation",
+      "group": "Getting Started",
       "pages": [
         "essentials/installation"
       ]
@@ -67,6 +71,12 @@
         "essentials/playerdata",
         "essentials/prompts",
         "essentials/commands"
+      ]
+    },
+    {
+      "group": "Quick Native Research",
+      "pages": [
+        "snippets/snippet-intro"
       ]
     },
     {
