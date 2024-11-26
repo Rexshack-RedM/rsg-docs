@@ -1,3 +1,115 @@
 ---
-title: "Exports"
+title: "🎮 Client Event Reference"
+description: "Learn about and how to use common core client events!"
 ---
+
+### RSGCore:Client:OnPlayerLoaded
+
+* Handles the player loading in after character selection
+
+<Check>
+  This event can be used as an event handler to trigger code because it signifies the player has successfully loaded into the server!
+</Check>
+
+```lua
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    print('Im a client and i just loaded into your server!')
+end)
+```
+
+### RSGCore:Client:OnPlayerUnload
+
+* Handles the player login out to character selection
+
+<Check>
+  This event can be used as an event handler to trigger code because it signifies the player has successfully unloaded or logged out of the server!
+</Check>
+
+```lua
+RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function()
+    print('Im a client and i just logged out of your server!')
+end)
+```
+
+### RSGCore:Client:PvpHasToggled
+
+<Info>
+  On player load this event checks is triggered after checking the rsg-core config to see if PVP should be enabled or disabled
+</Info>
+
+```lua
+RegisterNetEvent('RSGCore:Client:PvpHasToggled', function(pvp_state)
+    print('PVP mode has been set to '..pvp_state..'!')
+end)
+```
+
+### RSGCore:Command:SpawnVehicle
+
+| **Arguments** | **Type** | **Required** | **Default** |
+| ------------- | -------- | ------------ | ----------- |
+| cart model    | string   | yes          | none        |
+
+<Info>
+  Client example
+</Info>
+
+```lua
+-- /spawnveh adder
+
+RegisterCommand('spawnveh', function(_, args)
+    local vehicle = RSGCore.Shared.Trim(args[1])
+    TriggerEvent('RSGCore:Command:SpawnVehicle', vehicle)
+end)
+```
+
+<Info>
+  Server example
+</Info>
+
+```
+-- /spawnveh wagon
+
+RegisterCommand('spawnveh', function(source, args)
+    local vehicle = RSGCore.Shared.Trim(args[1])
+    TriggerClientEvent('RSGCore:Command:SpawnVehicle', source, vehicle)
+end)
+```
+
+### RSGCore:Command:DeleteVehicle
+
+| **Arguments** | **Type** | **Required** | **Default** |
+| ------------- | -------- | ------------ | ----------- |
+| none          | none     | no           | none        |
+
+<Info>
+  Client example
+</Info>
+
+```
+RegisterCommand('deleteveh', function(_, args)
+    TriggerEvent('RSGCore:Command:DeleteVehicle')
+end)
+```
+
+<Info>
+  Server example
+</Info>
+
+```
+RegisterCommand('deleteveh', function(source, args)
+    TriggerClientEvent('RSGCore:Command:DeleteVehicle', source)
+end)
+```
+
+## RSGCore:Player:SetPlayerData
+
+<Check>
+  This event can be used as an event handler to trigger code because it indicates that the players data has changed!
+</Check>
+
+```
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(val)
+    PlayerData = val
+    print(RSGCore.Debug(PlayerData))
+end)
+```
