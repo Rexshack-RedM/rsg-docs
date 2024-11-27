@@ -37,11 +37,11 @@
       "icon": "book-open-cover",
       "url": "https://quantumprojects.mintlify.app/introduction"
     },
-    {
+/*     {
       "name": "Quantum Projects",
       "icon": "discord",
       "url": "https://discord.gg/kJ8ZrGM8TS"
-    }
+    } */
   ],
   "navigation": [
     {
