@@ -29,10 +29,6 @@
     {
       "name": "API Reference",
       "url": "api-reference"
-    },
-    {
-      "name": "Native Research",
-      "url": "native"
     }
   ],
   "anchors": [
@@ -91,7 +87,7 @@
     {
       "group": "Quick Native Research",
       "pages": [
-        "native/endpoint/snippet-intro"
+        "api-reference/endpoint/oxlibreference"
       ]
     }
   ],
