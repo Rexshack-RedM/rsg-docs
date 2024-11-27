@@ -3,7 +3,59 @@ title: "🐮 Overextended Library"
 description: "A standalone library for providing easily reusable code as importable modules and exports."
 ---
 
-### Notifications
+### Overextended Library Installation
+
+* To enable the ox_lib library inside of your resource just add @ox_lib/init.lua as a shared_script in your fxmanifest.lua file like below.
+<CodeGroup>
+```lua fxmanifest.lua
+shared_scripts {
+    '@ox_lib/init.lua',
+}
+```
+</CodeGroup>
+
+## Building a Overextended Ui 
+
+* Please visit Ox_Libs Docs to understand the ways to do this here https://overextended.dev/ox_lib#building-the-ui
+
+## Menu Registration
+
+* To define a menu in RSG, use the lib.registerContext function. This function sets up the menu's structure, including its title, options, and associated actions.
+
+```lua 
+lib.registerContext({
+    id = "example_menu",
+    title = "Example Menu",
+    options = {
+        {
+            title = "Open Inventory",
+            icon = "fa-solid fa-box",
+            description = "View your inventory items.",
+            event = "inventory:client:open",
+            arrow = true
+        },
+        {
+            title = "Toggle Duty",
+            icon = "fa-solid fa-shield",
+            event = "job:client:toggleDuty"
+        }
+    }
+})
+```
+# Showing the Menu
+* Once registered, the menu can be displayed using the lib.showContext function.
+
+Syntax:
+
+```lua
+lib.showContext("unique_menu_id")
+```
+
+# Localization
+
+* Text elements such as title and description can use localization functions for multi-language support. Example:
+
+## Notifications
 
 * Custom notifications with a lot of styling options.
 
