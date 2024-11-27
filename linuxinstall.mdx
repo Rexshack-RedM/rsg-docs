@@ -14,5 +14,26 @@ sudo apt-get update
 ```
 
 <Warning>
-
+Make sure to always use a user that has sudo privileges. On Linux, root accounts have access to everything on the system. It is advised that a specific user has sudo privileges and remote root access is turned off to prevent any incidents related to possible breaches. You can read more about initial Linux security [here](https://blog.avast.com/secure-your-linux-server-avast).
 </Warning>
+
+After you've updated your system, it's time to install the MariaDB server. You do so by entering the command below
+
+```
+sudo apt-get install mariadb-server
+```
+Follow the setup that guides you through. There should be a few options that you select with the space key. Eventually, when you've completed the installation, you'll need to run through a secure installation with the command below.
+
+```
+sudo mysql_secure_installation
+```
+
+The script will prompt you to set up the root user password, remove the anonymous user, restrict root user access to the local machine and remove the test database. At the end the script will reload the privilege tables ensuring that all changes take effect immediately.
+
+All steps are explained in detail and it is recommended to answer “Y” (yes) to all questions.
+
+After you've done the secure installation above, you can then connect to your mysql service via the command below. You log in as the local mysql root user with the password that you've set in the secure installation.
+
+```
+mysql -u root -p
+```
