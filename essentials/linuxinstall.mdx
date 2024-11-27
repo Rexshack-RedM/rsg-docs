@@ -57,7 +57,7 @@ mysql -u root -p
 ```
 Once you're in the console, it should look a bit like this
 
-![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FdxJHHZoBqSYWgSVXbIlY%252FTerminus_SOG5oqcssc.png%3Falt%3Dmedia%26token%3D7d2f252f-dc2f-48ca-9051-3b8b9b6050f8&width=768&dpr=4&quality=100&sign=82a8eb6a&sv=1)
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FSsBy34XsheOK1BY9hmxi%252FTerminus_LjifucOy4i.png%3Falt%3Dmedia%26token%3Da3631ba4-7023-4e2e-af09-9768a1f2339f&width=768&dpr=1&quality=100&sign=95ad2ded&sv=1)
 
 MariaDB Command Line
 
@@ -85,3 +85,78 @@ We open this file using the command sudo `nano 50-server.cnf`, which opens a com
 
 The screenshot below shows you what line needs changing. The default setting will have the bind address set to 127.0.0.1, which only allows local host connections. We will change this to 0.0.0.0 to allow any and all connections to the database.
 
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FdxJHHZoBqSYWgSVXbIlY%252FTerminus_SOG5oqcssc.png%3Falt%3Dmedia%26token%3D7d2f252f-dc2f-48ca-9051-3b8b9b6050f8&width=768&dpr=1&quality=100&sign=82a8eb6a&sv=1)
+
+Editing in nano is fairly simple, it's the same as using a notepad but without a mouse. Use arrow keys to move through the code and normally edit the file as you would in a normal environment.
+
+After you've edited the bind address to 0.0.0.0, you can exit the file using CTRL+X, pressing Y when prompted to save changes and Enter when prompted what to save the file as (It will always be the same file name as when it was open).
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252Fjr4sAE1y81FpibF6PKAM%252FTerminus_Sf4x4s5sbx.png%3Falt%3Dmedia%26token%3Ddb1df68c-8c9b-4a37-89e1-e74a701fa30d&width=768&dpr=1&quality=100&sign=12642665&sv=1)
+
+**After pressing CTRL+X we press Y to save changes**
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FyZlw9kSi63J4qh2c7X8b%252FTerminus_Ot5jFzizkD.png%3Falt%3Dmedia%26token%3D11d251e6-d899-44c2-9b78-10bf37f31688&width=768&dpr=1&quality=100&sign=f2a911e7&sv=1)
+
+**Leave the file name the same and press enter.**
+
+After that, we restart the mariadb service to confirm changes to the files using the commands below
+
+`sudo systemctl restart mariadb`
+
+You can check the status of the service by using the below command
+
+`sudo systemctl status mariadb`
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FDS6oXJo0EwI3xlcGNQH1%252FTerminus_f7VVyPHkLC.png%3Falt%3Dmedia%26token%3Dde93de50-395c-4a7a-bb31-97060fa4de31&width=768&dpr=1&quality=100&sign=524c26d5&sv=1)
+
+**systemctl status of MariaDB**
+
+We have allowed remote access from all other hosts. Are we able to connect now? Not quite yet. There is one more thing left to do.
+
+## Opening ports
+
+Ports can be a pain to understand, especially for a beginner. Let's break it down.
+
+Ports are like doors that have specific things behind them. A door needs to be unlocked in order to pass through it. Without an open door, no traffic can pass through our services.
+
+MySQL services have a default port of 3306, you can change these in the settings, but you do not need to do so. We will be using a firewall software called iptables that allows us to open these ports. These usually do come as standard and already installed with certain distributions of Linux. You can check if iptables is already installed with the command below.
+
+`sudo iptables --version`
+
+If you get a response similiar to what is below in the screenshot, then you've got iptables installed and ready for use.
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2F550110915-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FBTxg66Z0GQkOQS46Nzn3%252Fuploads%252FjLaFXcaU3AI6V8mY7KiC%252FTerminus_8ovVMYD2CK.png%3Falt%3Dmedia%26token%3D4a0c1452-3844-4629-a067-a20aea902b01&width=768&dpr=1&quality=100&sign=3af99574&sv=1)
+
+`iptables returning its version`
+
+Once you've verified that you have iptables installed, just run the following command to open the 3306 port for MySQL Connections.
+
+`sudo iptables -A INPUT -p tcp --dport 3306 -j ACCEPT`
+
+You can check if the port is open and able to be seen by using this website [here](https://portchecker.co/).
+
+## Running Artifacts
+
+Using artifacts is the most important bit, because it is essentially the brain of the server. We use wget, a tool present on the Linux system to directly download the archive from Cfx's Webpage. [Here](https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/) is a list of all Linux artifacts, but it's best if you just get the latest one. Once you've made your decision on which version of the artifacts to get, simply right click and use "Copy Link". This will copy a direct link to the artifacts that we'll use in the wget command.
+
+Move to whichever folder you are going to download the file to. (I usually make a seperate folder for Artifacts and Files, just so they're seperated.) Use the following command (Remember to replace the link with whatever you get from the Artifacts website)
+
+`wget https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/5742-ded89bc6acf29a720a7686a1de70d28b62c75af8/fx.tar.xz`
+
+**Using wget**
+
+After this is done, you will have the files in the directory you currently are. You then simply "untar" the archive with the tar command found below
+
+`tar -xf fx.tar.xz`
+
+The console will hang for a bit. After it is done, you should see the files in the directory after you run the dir command.
+
+![](https://docs.qbcore.org/~gitbook/image?url=https%3A%2F%2Fuser-images.githubusercontent.com%2F89489089%2F179920224-e8c933b9-91a2-4dc9-9ba5-71dc7e59484d.png&width=768&dpr=1&quality=100&sign=3c7ea32e&sv=1)
+
+**Using tar and dir command**
+
+The only thing left to do now is running the actual artifacts. While Windows uses .exe and .bat files, Linux uses so called .sh files to run Cfx Artifacts. Make sure that you're in a screen like we've discussed earlier and run the following command in the directory with the run.sh file to start your FiveM server.
+
+`./run.sh`
+
+The rest of the setup is relatively easy, since you are now setting up txAdmin, it is identical to the Windows installation. Continue the tutorial in the Windows section, just skipping the part about the artifacts and continuing after the .exe is ran [here](https://quantumprojects.mintlify.app/essentials/installation).
