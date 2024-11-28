@@ -1,0 +1,14 @@
+---
+title: "⏺️ Effective RedM Lua Programming"
+description: "Welcome to some information for Lua programming practices"
+---
+
+### Creating First Resource
+
+- RedM servers are programmed using multiple different resources (scripts). It makes it simple to write, understand, share, import and manage. Most of the resources work independently, but they can use functions from other resources or tell them to do specific actions. Resources can have server, client or both scripts. The difference between these 2 is that client scripts run on client machine and does not interrupt server (if it is not instructed to do so). While server scripts run on the server and complete tasks there unless a task on any of the client’s machine is triggered. Picture below represents that all client scripts run separately on each client machine and server scripts are running only on server.
+
+![](https://i.imgur.com/jV357dF.png)
+
+<Info>
+A thing to note is that client can not trigger tasks on other client’s machine directly. It has to go through server. For example if client A wants to send a message to a client B it must be triggered through server task as obviously none of the clients have a direct connection to each other, they are all connected through server.
+</Info>
