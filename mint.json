@@ -40,19 +40,19 @@
   ],
   "navigation": [
     {
+      "group": "Getting Started",
+      "pages": [
+        "essentials/installation",
+        "essentials/linuxinstall"
+      ]
+    },
+    {
       "group": "Information & Guides",
       "pages": [
         "introduction",
         "quickstart",
         "development",
         "MiscGuides"
-      ]
-    },
-    {
-      "group": "Getting Started",
-      "pages": [
-        "essentials/installation",
-        "essentials/linuxinstall"
       ]
     },
     {
