@@ -29,6 +29,10 @@
     {
       "name": "API Reference",
       "url": "api-reference"
+    },
+    {
+      "name": "Lua RedM Practice",
+      "url": "lua-reference"
     }
   ],
   "anchors": [
@@ -84,6 +88,12 @@
       "group": "Quick Native Research",
       "pages": [
         "api-reference/endpoint/nativereference1"
+      ]
+    },
+    {
+      "group": "Effective Lua",
+      "pages": [
+        "lua-reference/main"
       ]
     }
   ],
