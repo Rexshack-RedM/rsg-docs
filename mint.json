@@ -46,6 +46,7 @@
     {
       "group": "Getting Started",
       "pages": [
+        "homepage",
         "essentials/installation",
         "essentials/linuxinstall"
       ]
@@ -53,7 +54,6 @@
     {
       "group": "Information & Guides",
       "pages": [
-        "introduction",
         "quickstart",
         "development",
         "MiscGuides"
