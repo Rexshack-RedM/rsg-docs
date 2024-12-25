@@ -71,9 +71,15 @@ Example:
 </CodeGroup>
 
 <Info>
-Always try to use language locales! e.g. 
-```lua
-lib.notify({ title = locale('SOMETITLE'), type = 'success'})
-```
+Always try to use language locales! e.g. (these are typically a json format)
 </Info>
+
+<CodeGroup>
+```lua
+locale('SOMETITLE')
+```
+```js en.json
+"SOMETITLE" : "THIS IS A LOCALE FILE"
+```
+</CodeGroup>
 
