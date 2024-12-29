@@ -75,7 +75,8 @@
         "api-reference/endpoint/clienteventreference",
         "api-reference/endpoint/clientfunctionreference",
         "api-reference/endpoint/servereventreference",
-        "api-reference/endpoint/serverfunctionreference"
+        "api-reference/endpoint/serverfunctionreference",
+        "api-reference/endpoint/playerinformationreference"
       ]
     },
     {

@@ -1,0 +1,33 @@
+---
+title: "🤵 Player Information Reference"
+description: "Learn how to aquire player information for your scripts."
+---
+
+# This guide will help you understand how to retrieve player information such as their name, citizen ID, and permissions, and use this data in your scripts. This can be useful for creating admin actions like banning players, triggering events, or performing custom actions based on player data.
+
+### Step 1: Get Player Information
+
+To access the information of a player, we need to retrieve their player object using the `RSGCore.Functions.GetPlayer()` function. This function will return an object containing various details about the player, including their character information and permissions.
+
+<Info>
+    Example: Retrieve Player Data
+</Info>
+
+<CodeGroup>
+  ```lua client.lua
+local src = source  -- The source refers to the player who triggered the event
+local Player = RSGCore.Functions.GetPlayer(src)  -- Get the player object using their source ID
+
+-- Accessing player information
+local firstname = Player.PlayerData.charinfo.firstname  -- Player's first name
+local lastname = Player.PlayerData.charinfo.lastname  -- Player's last name
+local citizenid = Player.PlayerData.citizenid  -- Player's citizen ID
+  ```
+</CodeGroup>
+
+### The Player object has the following structure:
+
+* `Player.PlayerData.charinfo.firstname`: The player's first name.
+* `Player.PlayerData.charinfo.lastname`: The player's last name.
+* `Player.PlayerData.citizenid`: The player's citizen ID.
+

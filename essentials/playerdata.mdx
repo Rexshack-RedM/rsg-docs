@@ -123,7 +123,7 @@ end
 
 * Creates a new character and sets default data (any function inside the self table can be called on the player after using the GetPlayer function)
 
-```
+```lua
 function RSGCore.Player.CreatePlayer(PlayerData, Offline)
     local self = {}
     self.Functions = {}
@@ -406,7 +406,7 @@ end
 
 * Deletes a character and all corresponding data in the database
 
-```
+```lua
 local playertables = { -- Add tables as needed
     { table = 'players'},
     { table = 'playeroutfit'},
