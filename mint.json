@@ -82,7 +82,8 @@
     {
       "group": "Ox Lib References",
       "pages": [
-        "api-reference/endpoint/oxlibreference"
+        "api-reference/endpoint/oxlibreference",
+        "api-reference/endpoint/oxtargetreference"
       ]
     },
     {
