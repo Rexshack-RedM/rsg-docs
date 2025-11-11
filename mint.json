@@ -19,6 +19,10 @@
     {
       "name": "Discord",
       "url": "https://discord.gg/rsg-redm-framework-914413479157448744"
+    },
+    {
+      "name": "RedM Natives",
+      "url": "https://rdr3natives.com/"
     }
   ],
   "topbarCtaButton": {
@@ -83,12 +87,6 @@
       "pages": [
         "api-reference/endpoint/oxlibreference",
         "api-reference/endpoint/oxtargetreference"
-      ]
-    },
-    {
-      "group": "Quick Native Research",
-      "pages": [
-        "api-reference/endpoint/nativereference1"
       ]
     },
     {
