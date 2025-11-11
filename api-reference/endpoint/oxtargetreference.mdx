@@ -41,4 +41,684 @@ description: "A performant and flexible standalone targeting resource or "third-
 * serverEvent?: `string`
 * command?: `string`
 
-## addEntity
+---
+
+## Overview
+
+ox_target (previously known as qtarget) is a performant and flexible targeting resource for RedM. It allows players to interact with entities, zones, and models using a "third-eye" targeting system.
+
+<Check>
+ox_target is already included and used extensively in RSG Framework resources!
+</Check>
+
+---
+
+## Installation
+
+ox_target is already included in RSG Framework. To use it in your custom resources:
+
+```lua fxmanifest.lua
+dependencies {
+    'ox_target'
+}
+```
+
+---
+
+## Entity Targeting
+
+### addEntity
+
+Add targeting options to a specific entity.
+
+```lua
+exports.ox_target:addEntity(entity, options)
+```
+
+**Parameters**:
+- `entity` (number) - The entity handle
+- `options` (table) - Array of target options
+
+**Example**:
+```lua
+local npc = CreatePed(model, coords.x, coords.y, coords.z, heading, true, false, false, false)
+
+exports.ox_target:addEntity(npc, {
+    {
+        label = 'Talk to Shopkeeper',
+        icon = 'fa-solid fa-comments',
+        distance = 2.5,
+        onSelect = function(data)
+            print('Talking to shopkeeper')
+            -- Open shop menu
+        end
+    },
+    {
+        label = 'Rob Shopkeeper',
+        icon = 'fa-solid fa-mask',
+        distance = 2.0,
+        canInteract = function(entity, distance, coords, name, bone)
+            local Player = RSGCore.Functions.GetPlayerData()
+            return Player.job.name ~= 'vallaw'
+        end,
+        onSelect = function(data)
+            -- Trigger robbery
+            TriggerEvent('robbery:client:start')
+        end
+    }
+})
+```
+
+---
+
+### removeEntity
+
+Remove targeting options from a specific entity.
+
+```lua
+exports.ox_target:removeEntity(entity, optionNames)
+```
+
+**Parameters**:
+- `entity` (number) - The entity handle
+- `optionNames` (string|table|nil) - Specific option names to remove, or nil to remove all
+
+**Example**:
+```lua
+-- Remove specific option
+exports.ox_target:removeEntity(npc, 'talk_option')
+
+-- Remove all options
+exports.ox_target:removeEntity(npc)
+```
+
+---
+
+## Model Targeting
+
+### addModel
+
+Add targeting options to all entities with specific models.
+
+```lua
+exports.ox_target:addModel(models, options)
+```
+
+**Parameters**:
+- `models` (string|number|table) - Model hash(es) or name(s)
+- `options` (table) - Array of target options
+
+**Example**:
+```lua
+-- Target all hitching posts
+exports.ox_target:addModel(`P_HITCHINGPOST01X`, {
+    {
+        label = 'Hitch Horse',
+        icon = 'fa-solid fa-horse',
+        distance = 3.0,
+        canInteract = function(entity, distance, coords, name, bone)
+            -- Check if player is on a horse
+            return IsPedOnMount(PlayerPedId())
+        end,
+        onSelect = function(data)
+            TriggerEvent('horses:client:hitchHorse', data.entity)
+        end
+    }
+})
+
+-- Multiple models
+exports.ox_target:addModel({
+    `P_HITCHINGPOST01X`,
+    `P_HITCHINGPOST02X`,
+    `P_HITCHINGPOST03X`
+}, {
+    {
+        label = 'Hitch Horse',
+        icon = 'fa-solid fa-horse',
+        distance = 3.0,
+        onSelect = function(data)
+            TriggerEvent('horses:client:hitchHorse', data.entity)
+        end
+    }
+})
+```
+
+---
+
+### removeModel
+
+Remove targeting options from models.
+
+```lua
+exports.ox_target:removeModel(models, optionNames)
+```
+
+**Parameters**:
+- `models` (string|number|table) - Model hash(es) or name(s)
+- `optionNames` (string|table|nil) - Option names to remove, or nil for all
+
+**Example**:
+```lua
+exports.ox_target:removeModel(`P_HITCHINGPOST01X`)
+```
+
+---
+
+## Zone Targeting
+
+### addBoxZone
+
+Add a box-shaped targeting zone.
+
+```lua
+exports.ox_target:addBoxZone(name, coords, size, rotation, options, targetoptions)
+```
+
+**Parameters**:
+- `name` (string) - Unique zone identifier
+- `coords` (vector3) - Center coordinates
+- `size` (vector3) - Box dimensions (length, width, height)
+- `rotation` (number) - Rotation in degrees
+- `options` (table) - Array of target options
+- `targetoptions` (table) - Additional zone settings
+
+**Example**:
+```lua
+exports.ox_target:addBoxZone('valentine_bank', vector3(-308.36, 775.58, 118.70), vector3(2.0, 2.0, 2.0), 0, {
+    {
+        label = 'Access Bank',
+        icon = 'fa-solid fa-piggy-bank',
+        onSelect = function()
+            TriggerEvent('rsg-banking:client:openBank', 'valentine')
+        end
+    }
+})
+```
+
+---
+
+### addSphereZone
+
+Add a sphere-shaped targeting zone.
+
+```lua
+exports.ox_target:addSphereZone(name, coords, radius, options, targetoptions)
+```
+
+**Parameters**:
+- `name` (string) - Unique zone identifier
+- `coords` (vector3) - Center coordinates
+- `radius` (number) - Sphere radius
+- `options` (table) - Array of target options
+- `targetoptions` (table) - Additional zone settings
+
+**Example**:
+```lua
+exports.ox_target:addSphereZone('butcher_shop', vector3(-301.12, 800.34, 118.90), 2.5, {
+    {
+        label = 'Sell Meat',
+        icon = 'fa-solid fa-meat',
+        canInteract = function()
+            return exports['rsg-inventory']:HasItem(source, 'meat')
+        end,
+        onSelect = function()
+            TriggerServerEvent('butcher:server:sellMeat')
+        end
+    }
+})
+```
+
+---
+
+### removeZone
+
+Remove a targeting zone.
+
+```lua
+exports.ox_target:removeZone(name)
+```
+
+**Parameters**:
+- `name` (string) - Zone identifier
+
+**Example**:
+```lua
+exports.ox_target:removeZone('valentine_bank')
+```
+
+---
+
+## Advanced Options
+
+### Job Restrictions
+
+Restrict interactions to specific jobs:
+
+```lua
+{
+    label = 'Access Evidence Locker',
+    icon = 'fa-solid fa-box',
+    groups = 'vallaw',  -- Single job
+    onSelect = function()
+        -- Open evidence locker
+    end
+}
+
+-- Multiple jobs
+{
+    label = 'Access Medical Supplies',
+    icon = 'fa-solid fa-briefcase-medical',
+    groups = {'doctor', 'vallaw'},  -- Array of jobs
+    onSelect = function()
+        -- Open supplies
+    end
+}
+
+-- Job with grade requirement
+{
+    label = 'Access Sheriff Office',
+    icon = 'fa-solid fa-door-open',
+    groups = {
+        vallaw = 2  -- Valentine Law grade 2 or higher
+    },
+    onSelect = function()
+        -- Open office
+    end
+}
+```
+
+---
+
+### Item Requirements
+
+Require specific items to see the interaction:
+
+```lua
+{
+    label = 'Repair Wagon',
+    icon = 'fa-solid fa-wrench',
+    items = 'repair_kit',  -- Single item
+    onSelect = function()
+        -- Repair wagon
+    end
+}
+
+-- Multiple items (requires all)
+{
+    label = 'Cook Stew',
+    icon = 'fa-solid fa-pot',
+    items = {'meat', 'vegetables', 'water'},
+    onSelect = function()
+        -- Cook stew
+    end
+}
+
+-- Items with quantity
+{
+    label = 'Craft Bandage',
+    icon = 'fa-solid fa-bandage',
+    items = {
+        cloth = 3,
+        thread = 1
+    },
+    onSelect = function()
+        -- Craft bandage
+    end
+}
+
+-- Require ANY item (not all)
+{
+    label = 'Feed Horse',
+    icon = 'fa-solid fa-carrot',
+    items = {'apple', 'carrot', 'hay'},
+    anyItem = true,  -- Only needs one of these items
+    onSelect = function()
+        -- Feed horse
+    end
+}
+```
+
+---
+
+### Distance Control
+
+Control interaction distance:
+
+```lua
+{
+    label = 'Open Door',
+    icon = 'fa-solid fa-door-open',
+    distance = 2.0,  -- Can interact from 2 units away
+    onSelect = function()
+        -- Open door
+    end
+}
+```
+
+---
+
+### Bone Targeting
+
+Target specific entity bones:
+
+```lua
+{
+    label = 'Pat Horse',
+    icon = 'fa-solid fa-hand',
+    bones = 'neck',  -- Single bone
+    distance = 2.0,
+    onSelect = function(data)
+        -- Pat horse
+    end
+}
+
+-- Multiple bones
+{
+    label = 'Check Saddle',
+    icon = 'fa-solid fa-saddle',
+    bones = {'saddle', 'back'},
+    distance = 2.0,
+    onSelect = function(data)
+        -- Check saddle
+    end
+}
+```
+
+---
+
+### Can Interact Function
+
+Dynamic interaction visibility:
+
+```lua
+{
+    label = 'Lockpick Door',
+    icon = 'fa-solid fa-lock',
+    canInteract = function(entity, distance, coords, name, bone)
+        -- Check if player has lockpick
+        local hasLockpick = exports['rsg-inventory']:HasItem(source, 'lockpick')
+
+        -- Check if not a cop
+        local Player = RSGCore.Functions.GetPlayerData()
+        local isCop = Player.job.type == 'leo'
+
+        return hasLockpick and not isCop
+    end,
+    onSelect = function(data)
+        -- Start lockpicking
+    end
+}
+```
+
+---
+
+### Event Types
+
+Different ways to handle interactions:
+
+```lua
+-- Client Event
+{
+    label = 'Open Menu',
+    icon = 'fa-solid fa-bars',
+    event = 'myresource:client:openMenu'  -- Triggers client event
+}
+
+-- Server Event
+{
+    label = 'Purchase Item',
+    icon = 'fa-solid fa-shopping-cart',
+    serverEvent = 'shop:server:purchase',  -- Triggers server event
+    args = { item = 'bread', price = 5 }   -- Arguments passed to event
+}
+
+-- OnSelect Function
+{
+    label = 'Custom Action',
+    icon = 'fa-solid fa-cog',
+    onSelect = function(data)
+        -- data.entity = entity handle
+        -- data.coords = entity coordinates
+        -- data.model = entity model
+        -- Custom code here
+    end
+}
+
+-- Export
+{
+    label = 'Use Export',
+    icon = 'fa-solid fa-box',
+    export = 'myresource:openThing'  -- Calls an export
+}
+
+-- Command
+{
+    label = 'Run Command',
+    icon = 'fa-solid fa-terminal',
+    command = 'emote wave'  -- Executes a command
+}
+```
+
+---
+
+## Complete Examples
+
+### Example 1: NPC Shopkeeper
+
+```lua
+CreateThread(function()
+    -- Create NPC
+    local model = `U_M_M_VALTHESKINNER_01`
+    lib.requestModel(model, 5000)
+
+    local coords = vector3(-324.28, 803.50, 117.88)
+    local npc = CreatePed(model, coords.x, coords.y, coords.z, 90.0, false, false, false, false)
+
+    SetEntityCanBeDamaged(npc, false)
+    SetEntityInvincible(npc, true)
+    FreezeEntityPosition(npc, true)
+    SetBlockingOfNonTemporaryEvents(npc, true)
+
+    -- Add targeting
+    exports.ox_target:addEntity(npc, {
+        {
+            label = 'Browse Goods',
+            icon = 'fa-solid fa-shopping-basket',
+            distance = 2.5,
+            onSelect = function()
+                TriggerServerEvent('shop:server:open', 'general')
+            end
+        },
+        {
+            label = 'Sell Items',
+            icon = 'fa-solid fa-dollar-sign',
+            distance = 2.5,
+            canInteract = function()
+                -- Only show if player has items to sell
+                return exports['rsg-inventory']:GetItemCount(source, {'meat', 'pelt'}) > 0
+            end,
+            onSelect = function()
+                TriggerEvent('shop:client:sellMenu')
+            end
+        }
+    })
+end)
+```
+
+---
+
+### Example 2: Job-Restricted Zones
+
+```lua
+-- Sheriff's Office Door
+exports.ox_target:addBoxZone('sheriff_office', vector3(-275.42, 807.12, 119.38), vector3(1.5, 1.5, 2.5), 0, {
+    {
+        label = 'Enter Office',
+        icon = 'fa-solid fa-door-open',
+        groups = {
+            vallaw = 0  -- Any valentine law grade
+        },
+        onSelect = function()
+            -- Unlock and open door
+            TriggerEvent('doors:client:open', 'sheriff_office')
+        end
+    }
+})
+
+-- Evidence Locker (high rank only)
+exports.ox_target:addBoxZone('evidence_locker', vector3(-270.11, 810.55, 119.38), vector3(2.0, 2.0, 2.0), 0, {
+    {
+        label = 'Access Evidence',
+        icon = 'fa-solid fa-box',
+        groups = {
+            vallaw = 3  -- Grade 3 or higher
+        },
+        onSelect = function()
+            TriggerServerEvent('police:server:openEvidence')
+        end
+    }
+})
+```
+
+---
+
+### Example 3: Crafting Station
+
+```lua
+exports.ox_target:addSphereZone('crafting_bench', vector3(-280.50, 815.22, 119.50), 2.0, {
+    {
+        label = 'Craft Bandages',
+        icon = 'fa-solid fa-bandage',
+        items = {
+            cloth = 2,
+            thread = 1
+        },
+        onSelect = function()
+            TriggerEvent('crafting:client:start', 'bandage')
+        end
+    },
+    {
+        label = 'Craft Repair Kit',
+        icon = 'fa-solid fa-toolbox',
+        items = {
+            metal = 5,
+            wood = 3,
+            oil = 1
+        },
+        onSelect = function()
+            TriggerEvent('crafting:client:start', 'repair_kit')
+        end
+    },
+    {
+        label = 'Craft Lockpick',
+        icon = 'fa-solid fa-key',
+        items = {
+            metal = 2
+        },
+        canInteract = function()
+            local Player = RSGCore.Functions.GetPlayerData()
+            return Player.metadata.rep.crafting and Player.metadata.rep.crafting >= 10
+        end,
+        onSelect = function()
+            TriggerEvent('crafting:client:start', 'lockpick')
+        end
+    }
+})
+```
+
+---
+
+### Example 4: Dynamic Hitching Posts
+
+```lua
+-- Target all hitching post models
+local hitchingModels = {
+    `P_HITCHINGPOST01X`,
+    `P_HITCHINGPOST02X`,
+    `P_HITCHINGPOST03X`,
+    `P_HITCHINGPOST04X`,
+    `P_HITCHINGPOSTOLD01X`
+}
+
+exports.ox_target:addModel(hitchingModels, {
+    {
+        label = 'Hitch Horse',
+        icon = 'fa-solid fa-horse',
+        distance = 3.5,
+        canInteract = function(entity, distance, coords, name, bone)
+            return IsPedOnMount(PlayerPedId())
+        end,
+        onSelect = function(data)
+            local horse = GetMount(PlayerPedId())
+            if horse and horse ~= 0 then
+                TriggerServerEvent('horses:server:hitchHorse', NetworkGetNetworkIdFromEntity(horse), data.coords)
+            end
+        end
+    },
+    {
+        label = 'Retrieve Horse',
+        icon = 'fa-solid fa-hand-holding',
+        distance = 3.5,
+        canInteract = function(entity, distance, coords, name, bone)
+            -- Check if player has a horse hitched nearby
+            return not IsPedOnMount(PlayerPedId())  -- Not on horse
+        end,
+        onSelect = function(data)
+            TriggerServerEvent('horses:server:retrieveHorse', data.coords)
+        end
+    }
+})
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Use canInteract for dynamic visibility**: Hide options that aren't currently available instead of showing disabled options
+</Tip>
+
+<Warning>
+**Always validate on server**: Never trust client-side data. Always re-check permissions and items on the server
+</Warning>
+
+<Check>
+**Use appropriate distances**: Keep interaction distances realistic (1.5-3.0 for most interactions)
+</Check>
+
+### Performance Tips
+
+1. **Don't add too many zones**: Each zone checks distance every frame
+2. **Use models over entities**: Model targeting is more efficient than entity targeting for common objects
+3. **Efficient canInteract**: Keep canInteract functions lightweight
+4. **Clean up when done**: Remove zones/entities when they're no longer needed
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Target options not showing" defaultOpen={false}>
+    - Check distance - are you close enough?
+    - Verify canInteract function isn't returning false
+    - Check job/gang/item requirements
+    - Ensure ox_target is started before your resource
+  </Accordion>
+
+  <Accordion title="Option showing for wrong job" defaultOpen={false}>
+    - Verify the groups parameter is set correctly
+    - Check player's actual job name (not label)
+    - Ensure grade requirements are correct
+  </Accordion>
+
+  <Accordion title="Zone not working" defaultOpen={false}>
+    - Check zone coordinates are correct
+    - Verify size/radius is appropriate
+    - Make sure zone name is unique
+    - Check for Lua errors in F8 console
+  </Accordion>
+</AccordionGroup>
+
+---
+
+For more advanced usage, check the official ox_target documentation: https://overextended.dev/ox_target
