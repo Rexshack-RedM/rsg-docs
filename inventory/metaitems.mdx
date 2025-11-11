@@ -1,0 +1,1017 @@
+---
+title: "🏷️ Meta Items"
+description: "Complete guide to creating and using items with custom metadata in RSG Inventory"
+---
+
+## What Are Meta Items?
+
+Meta items are inventory items that store **custom metadata** (also called `info` data) beyond the basic item properties. This metadata allows items to have unique characteristics, track additional information, or store custom values that make each item instance different.
+
+<Check>
+Meta items enable dynamic gameplay features like: quality tracking, serial numbers, stored values, timestamps, player names, custom descriptions, and much more!
+</Check>
+
+---
+
+## Understanding Item Metadata
+
+### Basic Item Structure
+
+Every inventory item has standard properties:
+
+```lua
+{
+    name = 'bread',
+    label = 'Bread',
+    amount = 5,
+    type = 'item',
+    slot = 3,
+    weight = 200,
+    info = {},  -- This is where metadata lives!
+    unique = false,
+    useable = true,
+    image = 'bread.png',
+    description = 'Fresh bread'
+}
+```
+
+### The `info` Field
+
+The `info` field is a **Lua table** that can store any custom data you want:
+
+```lua
+info = {
+    quality = 85,
+    craftedBy = 'John_Doe',
+    timestamp = 1234567890,
+    serialNumber = 'ABC123XYZ',
+    customValue = 'anything',
+    nested = {
+        data = 'supported too!'
+    }
+}
+```
+
+<Info>
+The `info` table is **saved to the database** and persists across server restarts. It's stored as JSON in the database.
+</Info>
+
+---
+
+## Reserved Metadata Fields
+
+Some metadata fields have special meaning in the RSG Framework:
+
+### 1. **quality** - Item Condition
+Used by the decay system and weapons:
+
+```lua
+info = {
+    quality = 100  -- 0-100 scale
+}
+```
+
+- **100**: Perfect condition
+- **75-99**: Good condition
+- **50-74**: Decent condition
+- **25-49**: Poor condition
+- **0-24**: Very poor condition
+- **0**: Item is destroyed (deleted on next inventory load)
+
+### 2. **lastUpdate** - Decay Timestamp
+Automatically set for items with the `decay` property:
+
+```lua
+info = {
+    quality = 100,
+    lastUpdate = 1704067200  -- Unix timestamp
+}
+```
+
+<Warning>
+Never manually set `lastUpdate` unless you know what you're doing! The system manages this automatically.
+</Warning>
+
+### 3. **serie** - Weapon Serial Number
+Automatically generated for weapons:
+
+```lua
+info = {
+    serie = '12ABC3XY456WXYZ',  -- Unique weapon identifier
+    quality = 100,
+    ammo = 6
+}
+```
+
+### 4. **ammo** - Weapon Ammunition
+Current ammo count for weapons:
+
+```lua
+info = {
+    serie = 'ABC123',
+    quality = 85,
+    ammo = 6  -- Current loaded ammo
+}
+```
+
+---
+
+## Creating Items with Metadata
+
+### Method 1: AddItem with Info Parameter
+
+The primary way to add metadata is through the `info` parameter:
+
+```lua
+-- SERVER SIDE
+exports['rsg-inventory']:AddItem(source, 'item_name', amount, slot, info, reason)
+```
+
+**Parameters:**
+- `source` - Player server ID or stash identifier
+- `item_name` - Name of the item (from shared/items.lua)
+- `amount` - Quantity to add
+- `slot` - (optional) Specific slot number, or nil for auto-slot
+- `info` - **The metadata table**
+- `reason` - Reason for logging
+
+### Example: Simple Meta Item
+
+```lua
+-- SERVER SIDE
+local src = source
+local Player = RSGCore.Functions.GetPlayer(src)
+if not Player then return end
+
+local info = {
+    quality = 100,
+    craftedBy = GetPlayerName(src),
+    craftDate = os.date('%Y-%m-%d %H:%M:%S')
+}
+
+exports['rsg-inventory']:AddItem(src, 'bread', 1, nil, info, 'crafted-by-player')
+
+lib.notify(src, {
+    description = 'You crafted fresh bread!',
+    type = 'success'
+})
+```
+
+### Example: Money Clip (Real Framework Example)
+
+The `money_clip` item stores cash amount in metadata:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('rsg-banking:server:transact', function(type, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    if type == 3 then -- Create money clip
+        local currentBank = Player.Functions.GetMoney('bank')
+
+        if currentBank >= amount then
+            local info = {
+                money = amount  -- Store the cash amount
+            }
+
+            Player.Functions.RemoveMoney('bank', amount, 'bank-money_clip')
+            Player.Functions.AddItem('money_clip', 1, false, info)
+
+            lib.notify(src, {
+                description = 'Created money clip with $' .. amount,
+                type = 'success'
+            })
+        end
+    end
+end)
+```
+
+Then when used:
+
+```lua
+-- SERVER SIDE
+RSGCore.Functions.CreateUseableItem('money_clip', function(source, item)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local moneyAmount = item.info.money or 0
+
+    if moneyAmount > 0 then
+        Player.Functions.RemoveItem('money_clip', 1, item.slot, 'money-clip-used')
+        Player.Functions.AddMoney('cash', moneyAmount, 'money-clip-cashed')
+
+        lib.notify(src, {
+            description = 'You received $' .. moneyAmount .. ' from the money clip',
+            type = 'success'
+        })
+    end
+end)
+```
+
+---
+
+## Use Cases & Examples
+
+### Use Case 1: Crafted Items with Crafter Name
+
+Track who crafted an item:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('crafting:server:craftItem', function(itemName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check if player has materials (simplified)
+    local hasMaterials = exports['rsg-inventory']:HasItem(src, 'wood', 10)
+
+    if hasMaterials then
+        exports['rsg-inventory']:RemoveItem(src, 'wood', 10, nil, 'crafting')
+
+        local info = {
+            quality = 100,
+            craftedBy = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+            craftDate = os.date('%B %d, %Y'),
+            craftedCitizenId = Player.PlayerData.citizenid
+        }
+
+        exports['rsg-inventory']:AddItem(src, 'wooden_chair', 1, nil, info, 'crafted')
+
+        lib.notify(src, {
+            description = 'You crafted a wooden chair!',
+            type = 'success'
+        })
+    end
+end)
+```
+
+Now when players view the chair in their inventory, they can see who crafted it!
+
+### Use Case 2: Signed Documents
+
+Create items that can be signed by players:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('documents:server:signDocument', function(slot)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local document = exports['rsg-inventory']:GetItemBySlot(src, slot)
+
+    if document and document.name == 'blank_document' then
+        -- Remove unsigned document
+        exports['rsg-inventory']:RemoveItem(src, 'blank_document', 1, slot, 'document-signed')
+
+        -- Add signed document with metadata
+        local info = {
+            signedBy = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+            signedDate = os.date('%B %d, %Y at %I:%M %p'),
+            citizenId = Player.PlayerData.citizenid,
+            documentNumber = 'DOC-' .. math.random(10000, 99999)
+        }
+
+        exports['rsg-inventory']:AddItem(src, 'signed_document', 1, slot, info, 'document-signed')
+
+        lib.notify(src, {
+            description = 'Document signed successfully',
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Use Case 3: Timed Items / Expiration
+
+Create items that expire after a certain time:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('pharmacy:server:buyMedicine', function(medicineType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local price = 50
+    local hasMoney = Player.Functions.GetMoney('cash') >= price
+
+    if hasMoney then
+        Player.Functions.RemoveMoney('cash', price, 'medicine-purchase')
+
+        local info = {
+            quality = 100,
+            purchaseDate = os.time(),
+            expiresAt = os.time() + (7 * 24 * 60 * 60), -- Expires in 7 days
+            batchNumber = 'MED-' .. math.random(1000, 9999)
+        }
+
+        exports['rsg-inventory']:AddItem(src, 'medicine', 1, nil, info, 'pharmacy-purchase')
+
+        lib.notify(src, {
+            description = 'Medicine purchased (expires in 7 days)',
+            type = 'success'
+        })
+    end
+end)
+
+-- Check expiration when used
+RSGCore.Functions.CreateUseableItem('medicine', function(source, item)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local currentTime = os.time()
+    local expiresAt = item.info.expiresAt or currentTime
+
+    if currentTime > expiresAt then
+        lib.notify(src, {
+            description = 'This medicine has expired!',
+            type = 'error'
+        })
+
+        -- Optionally remove expired medicine
+        exports['rsg-inventory']:RemoveItem(src, 'medicine', 1, item.slot, 'expired')
+        return
+    end
+
+    -- Medicine is still good, use it
+    exports['rsg-inventory']:RemoveItem(src, 'medicine', 1, item.slot, 'consumed')
+
+    -- Heal player
+    TriggerClientEvent('rsg-medical:client:heal', src, 50)
+
+    lib.notify(src, {
+        description = 'You took medicine and feel better',
+        type = 'success'
+    })
+end)
+```
+
+### Use Case 4: Container Items (Bags/Pouches)
+
+Items that store other items:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('containers:server:openPouch', function(slot)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local pouch = exports['rsg-inventory']:GetItemBySlot(src, slot)
+
+    if pouch and pouch.name == 'coin_pouch' then
+        local coins = pouch.info.coins or 0
+
+        lib.alertDialog({
+            header = 'Coin Pouch',
+            content = 'This pouch contains ' .. coins .. ' gold coins.\n\nWhat would you like to do?',
+            centered = true,
+            cancel = true,
+            labels = {
+                confirm = 'Take Coins',
+                cancel = 'Close'
+            }
+        }, function(confirmed)
+            if confirmed then
+                -- Remove pouch
+                exports['rsg-inventory']:RemoveItem(src, 'coin_pouch', 1, slot, 'pouch-opened')
+
+                -- Give coins
+                Player.Functions.AddMoney('cash', coins, 'pouch-coins')
+
+                lib.notify(src, {
+                    description = 'You took ' .. coins .. ' coins from the pouch',
+                    type = 'success'
+                })
+            end
+        end)
+    end
+end)
+
+-- Creating pouches with random amounts
+RegisterNetEvent('loot:server:generatePouch', function()
+    local src = source
+    local randomCoins = math.random(50, 500)
+
+    local info = {
+        coins = randomCoins,
+        foundBy = GetPlayerName(src),
+        foundDate = os.date('%Y-%m-%d')
+    }
+
+    exports['rsg-inventory']:AddItem(src, 'coin_pouch', 1, nil, info, 'loot-found')
+end)
+```
+
+### Use Case 5: Custom Description Items
+
+Items with player-written descriptions:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('items:server:writeNote', function(slot, noteText)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local paper = exports['rsg-inventory']:GetItemBySlot(src, slot)
+
+    if paper and paper.name == 'blank_paper' then
+        if #noteText > 500 then
+            lib.notify(src, {
+                description = 'Note is too long (max 500 characters)',
+                type = 'error'
+            })
+            return
+        end
+
+        -- Remove blank paper
+        exports['rsg-inventory']:RemoveItem(src, 'blank_paper', 1, slot, 'note-written')
+
+        -- Add written note with custom text
+        local info = {
+            noteText = noteText,
+            writtenBy = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+            writtenDate = os.date('%B %d, %Y'),
+            noteId = 'NOTE-' .. RSGCore.Shared.RandomStr(8)
+        }
+
+        exports['rsg-inventory']:AddItem(src, 'written_note', 1, slot, info, 'note-written')
+
+        lib.notify(src, {
+            description = 'Note written successfully',
+            type = 'success'
+        })
+    end
+end)
+
+-- Reading notes
+RSGCore.Functions.CreateUseableItem('written_note', function(source, item)
+    local src = source
+    local noteText = item.info.noteText or 'This note is blank.'
+    local writtenBy = item.info.writtenBy or 'Unknown'
+    local writtenDate = item.info.writtenDate or 'Unknown date'
+
+    lib.alertDialog({
+        header = 'Written Note',
+        content = noteText .. '\n\n~ ' .. writtenBy .. '\n' .. writtenDate,
+        centered = true,
+        cancel = false
+    })
+end)
+```
+
+### Use Case 6: Pet Items with Stats
+
+Items representing pets with custom stats:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('pets:server:adoptPet', function(petType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local petNames = {'Max', 'Buddy', 'Charlie', 'Rocky', 'Duke', 'Bear', 'Scout'}
+    local randomName = petNames[math.random(#petNames)]
+
+    local info = {
+        petName = randomName,
+        petType = petType,
+        hunger = 100,
+        happiness = 100,
+        health = 100,
+        level = 1,
+        adoptedBy = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+        adoptedDate = os.date('%B %d, %Y'),
+        petId = 'PET-' .. RSGCore.Shared.RandomStr(10)
+    }
+
+    exports['rsg-inventory']:AddItem(src, 'pet_whistle', 1, nil, info, 'pet-adopted')
+
+    lib.notify(src, {
+        description = 'You adopted ' .. randomName .. ' the ' .. petType .. '!',
+        type = 'success'
+    })
+end)
+
+-- Using pet whistle to check stats
+RSGCore.Functions.CreateUseableItem('pet_whistle', function(source, item)
+    local src = source
+    local petInfo = item.info
+
+    local content = string.format(
+        'Name: %s\nType: %s\n\nHunger: %d%%\nHappiness: %d%%\nHealth: %d%%\nLevel: %d\n\nAdopted: %s',
+        petInfo.petName or 'Unknown',
+        petInfo.petType or 'Unknown',
+        petInfo.hunger or 0,
+        petInfo.happiness or 0,
+        petInfo.health or 0,
+        petInfo.level or 1,
+        petInfo.adoptedDate or 'Unknown'
+    )
+
+    lib.alertDialog({
+        header = 'Pet Stats - ' .. (petInfo.petName or 'Pet'),
+        content = content,
+        centered = true,
+        cancel = false
+    })
+end)
+```
+
+---
+
+## Accessing Item Metadata
+
+### Server-Side Access
+
+#### Get Item by Slot
+```lua
+local item = exports['rsg-inventory']:GetItemBySlot(source, slotNumber)
+
+if item then
+    print('Item name:', item.name)
+    print('Item amount:', item.amount)
+    print('Item metadata:', json.encode(item.info))
+
+    -- Access specific metadata
+    local quality = item.info.quality
+    local craftedBy = item.info.craftedBy
+end
+```
+
+#### Get Item by Name
+```lua
+local item = exports['rsg-inventory']:GetItemByName(source, 'money_clip')
+
+if item then
+    local moneyAmount = item.info.money or 0
+    print('Money clip contains: $' .. moneyAmount)
+end
+```
+
+#### Get All Items
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+for slot, item in pairs(Player.PlayerData.items) do
+    if item and item.name == 'signed_document' then
+        print('Document signed by:', item.info.signedBy)
+        print('Document date:', item.info.signedDate)
+    end
+end
+```
+
+### Client-Side Access
+
+Access metadata through PlayerData:
+
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local PlayerData = RSGCore.Functions.GetPlayerData()
+
+for slot, item in pairs(PlayerData.items) do
+    if item and item.name == 'wooden_chair' then
+        print('Chair crafted by:', item.info.craftedBy)
+    end
+end
+```
+
+Or through callbacks:
+
+```lua
+-- CLIENT SIDE
+RSGCore.Functions.TriggerCallback('inventory:server:getItemInfo', function(item)
+    if item then
+        print('Item metadata:', json.encode(item.info))
+    end
+end, slotNumber)
+```
+
+---
+
+## Modifying Existing Metadata
+
+### Method 1: SetItemData
+```lua
+-- SERVER SIDE
+exports['rsg-inventory']:SetItemData(source, 'medicine', 'info', {
+    quality = 85,
+    expiresAt = os.time() + (5 * 24 * 60 * 60)
+})
+```
+
+### Method 2: Remove and Re-Add
+For more complex updates, remove and re-add the item:
+
+```lua
+-- SERVER SIDE
+local item = exports['rsg-inventory']:GetItemByName(source, 'pet_whistle')
+
+if item then
+    local oldInfo = item.info
+    local slot = item.slot
+
+    -- Update metadata
+    oldInfo.hunger = math.max(0, oldInfo.hunger - 10)
+    oldInfo.happiness = math.max(0, oldInfo.happiness - 5)
+
+    -- Remove old item
+    exports['rsg-inventory']:RemoveItem(source, 'pet_whistle', 1, slot, 'pet-updated')
+
+    -- Add updated item
+    exports['rsg-inventory']:AddItem(source, 'pet_whistle', 1, slot, oldInfo, 'pet-updated')
+end
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Keep metadata small**: Only store essential data. Large metadata increases database size and network traffic.
+</Tip>
+
+<Warning>
+**Never trust client data**: Always validate metadata on server-side before accepting it.
+</Warning>
+
+<Check>
+**Use consistent keys**: Establish naming conventions for your metadata fields (e.g., always use `craftedBy` instead of mixing `crafter`, `made_by`, etc.)
+</Check>
+
+### Recommended Patterns
+
+#### ✅ Good Practices
+
+```lua
+-- Good: Small, efficient metadata
+local info = {
+    quality = 100,
+    craftedBy = playerName,
+    timestamp = os.time()
+}
+
+-- Good: Use numbers for timestamps (smaller than date strings)
+local info = {
+    createdAt = os.time()  -- Unix timestamp
+}
+
+-- Good: Short identifiers
+local info = {
+    id = 'DOC-12345'
+}
+```
+
+#### ❌ Bad Practices
+
+```lua
+-- Bad: Storing huge text
+local info = {
+    description = string.rep('Very long text...', 1000)  -- Too large!
+}
+
+-- Bad: Redundant data already in item definition
+local info = {
+    name = 'bread',  -- Already in item.name
+    label = 'Bread',  -- Already in item.label
+    weight = 200  -- Already in item.weight
+}
+
+-- Bad: Storing entire player object
+local info = {
+    player = Player.PlayerData  -- Way too much data!
+}
+```
+
+### Performance Tips
+
+1. **Limit metadata size**: Keep under 1KB per item when possible
+2. **Index frequently accessed fields**: If you query specific metadata often, consider separate database tables
+3. **Clean up old metadata**: Periodically remove expired or unused metadata
+4. **Validate inputs**: Check metadata before adding to prevent bad data
+
+---
+
+## Unique Items vs Non-Unique Items
+
+### Understanding `unique` Property
+
+Items can be marked as `unique = true` in `shared/items.lua`:
+
+```lua
+-- Non-unique item (can stack)
+bread = {
+    name = 'bread',
+    label = 'Bread',
+    weight = 100,
+    type = 'item',
+    image = 'bread.png',
+    unique = false  -- Can stack
+}
+
+-- Unique item (cannot stack)
+money_clip = {
+    name = 'money_clip',
+    label = 'Money Clip',
+    weight = 1,
+    type = 'item',
+    image = 'money_clip.png',
+    unique = true  -- Each takes its own slot
+}
+```
+
+### Stacking Behavior with Metadata
+
+**Non-Unique Items:**
+- Only stack if metadata (`info`) is **identical**
+- Different metadata = different stacks
+
+```lua
+-- These will stack together (same metadata)
+AddItem(source, 'bread', 5, nil, {quality = 100}, 'crafted')
+AddItem(source, 'bread', 5, nil, {quality = 100}, 'crafted')
+-- Result: 10x Bread in one slot
+
+-- These will NOT stack (different metadata)
+AddItem(source, 'bread', 5, nil, {quality = 100}, 'crafted')
+AddItem(source, 'bread', 5, nil, {quality = 50}, 'crafted')
+-- Result: Two separate stacks in different slots
+```
+
+**Unique Items:**
+- **Always** take individual slots
+- Even if metadata is identical
+
+```lua
+-- Each money clip gets its own slot
+AddItem(source, 'money_clip', 1, nil, {money = 100}, 'created')
+AddItem(source, 'money_clip', 1, nil, {money = 100}, 'created')
+-- Result: Two separate slots with 1x Money Clip each
+```
+
+<Info>
+When creating items with varying metadata, consider making them `unique = true` to prevent unexpected stacking behavior.
+</Info>
+
+---
+
+## Decay System Integration
+
+Items with the `decay` property automatically use metadata for quality tracking:
+
+```lua
+-- In shared/items.lua
+apple = {
+    name = 'apple',
+    label = 'Apple',
+    weight = 100,
+    type = 'item',
+    image = 'apple.png',
+    unique = false,
+    useable = true,
+    decay = 120,  -- Decay time in minutes (2 hours)
+    delete = true,  -- Delete when quality reaches 0
+    shouldClose = true,
+    description = 'Fresh apple'
+}
+```
+
+When added, the system automatically sets:
+
+```lua
+info = {
+    quality = 100,  -- Starts at 100%
+    lastUpdate = 1704067200  -- Current timestamp
+}
+```
+
+Over time, quality decreases based on the decay rate.
+
+<Warning>
+Items with 0% quality are **automatically deleted** when the inventory is loaded if `delete = true`!
+</Warning>
+
+---
+
+## Database Storage
+
+Metadata is stored as JSON in the database:
+
+### Player Inventory
+
+```sql
+SELECT inventory FROM players WHERE citizenid = 'ABC12345';
+```
+
+Result:
+```json
+[
+    {
+        "name": "money_clip",
+        "amount": 1,
+        "info": {
+            "money": 500
+        },
+        "type": "item",
+        "slot": 1
+    },
+    {
+        "name": "signed_document",
+        "amount": 1,
+        "info": {
+            "signedBy": "John Doe",
+            "signedDate": "January 15, 2025",
+            "documentNumber": "DOC-54321"
+        },
+        "type": "item",
+        "slot": 2
+    }
+]
+```
+
+### Stash Storage
+
+```sql
+SELECT items FROM inventories WHERE identifier = 'house_123';
+```
+
+Metadata is stored the same way for stashes.
+
+---
+
+## Common Errors & Troubleshooting
+
+### Error: Metadata Not Persisting
+
+**Problem**: Item metadata disappears after server restart
+
+**Cause**: Item not saved properly
+
+**Solution**: Ensure the item is added correctly and the inventory is being saved:
+
+```lua
+-- Make sure AddItem returns true
+local success = exports['rsg-inventory']:AddItem(source, 'item', 1, nil, info, 'reason')
+
+if not success then
+    print('Failed to add item!')
+end
+
+-- For stashes, make sure you've created the inventory first
+exports['rsg-inventory']:CreateInventory('stash_id', {
+    label = 'Stash Name',
+    maxweight = 50000,
+    slots = 25
+})
+```
+
+### Error: Metadata Overwriting
+
+**Problem**: Metadata gets overwritten when adding more of the same item
+
+**Cause**: Non-unique items with identical metadata stack together
+
+**Solution**: Either:
+1. Make the item `unique = true` in items.lua
+2. Ensure each item has different metadata
+3. Use a specific slot to prevent stacking
+
+```lua
+-- Force new slot by not specifying slot
+AddItem(source, 'item', 1, nil, {id = 'unique-' .. math.random(1000, 9999)}, 'reason')
+```
+
+### Error: Accessing Nil Metadata
+
+**Problem**: Trying to access metadata that doesn't exist
+
+```lua
+local item = GetItemByName(source, 'bread')
+local craftedBy = item.info.craftedBy  -- Error if info.craftedBy doesn't exist!
+```
+
+**Solution**: Always check if metadata exists:
+
+```lua
+local item = exports['rsg-inventory']:GetItemByName(source, 'bread')
+
+if item then
+    local craftedBy = item.info and item.info.craftedBy or 'Unknown'
+    print('Crafted by:', craftedBy)
+end
+```
+
+---
+
+## Advanced: Custom Metadata Validation
+
+Create a validation system for metadata:
+
+```lua
+-- SERVER SIDE
+local MetadataSchemas = {
+    money_clip = {
+        required = {'money'},
+        types = {
+            money = 'number'
+        },
+        validate = function(info)
+            return info.money and info.money > 0 and info.money <= 10000
+        end
+    },
+    signed_document = {
+        required = {'signedBy', 'documentNumber'},
+        types = {
+            signedBy = 'string',
+            documentNumber = 'string'
+        }
+    }
+}
+
+function ValidateItemMetadata(itemName, info)
+    local schema = MetadataSchemas[itemName]
+    if not schema then return true end  -- No validation needed
+
+    -- Check required fields
+    for _, field in ipairs(schema.required or {}) do
+        if not info[field] then
+            return false, 'Missing required field: ' .. field
+        end
+    end
+
+    -- Check field types
+    for field, expectedType in pairs(schema.types or {}) do
+        if info[field] and type(info[field]) ~= expectedType then
+            return false, 'Invalid type for field ' .. field .. ': expected ' .. expectedType
+        end
+    end
+
+    -- Custom validation
+    if schema.validate and not schema.validate(info) then
+        return false, 'Custom validation failed'
+    end
+
+    return true
+end
+
+-- Usage
+RegisterNetEvent('banking:server:createMoneyClip', function(amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local info = {
+        money = amount
+    }
+
+    local valid, error = ValidateItemMetadata('money_clip', info)
+
+    if not valid then
+        lib.notify(src, {
+            description = 'Invalid money clip: ' .. error,
+            type = 'error'
+        })
+        return
+    end
+
+    -- Proceed with creating money clip
+    exports['rsg-inventory']:AddItem(src, 'money_clip', 1, nil, info, 'bank-withdraw')
+end)
+```
+
+---
+
+## Summary
+
+Meta items provide powerful customization for inventory items:
+
+| Feature | Description |
+|---------|-------------|
+| **Custom Data** | Store any data in the `info` table |
+| **Persistence** | Metadata is saved to database |
+| **Reserved Fields** | `quality`, `lastUpdate`, `serie`, `ammo` have special meanings |
+| **Stacking** | Non-unique items only stack if metadata is identical |
+| **Access** | Use GetItemBySlot/GetItemByName to retrieve metadata |
+| **Validation** | Always validate metadata server-side |
+
+---
+
+## Next Steps
+
+- [Inventory Functions Reference](/inventory/functions) - Complete list of all inventory exports
+- [Inventory Overview](/inventory/overview) - Learn about the inventory system
+- [Weapons System](/inventory/weapons) - Weapon-specific metadata
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

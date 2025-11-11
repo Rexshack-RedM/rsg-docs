@@ -96,6 +96,7 @@
       "pages": [
         "inventory/overview",
         "inventory/functions",
+        "inventory/metaitems",
         "inventory/weapons"
       ]
     },
