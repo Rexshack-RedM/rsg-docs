@@ -1,0 +1,644 @@
+---
+title: "📡 Events & Callbacks"
+description: "Master event-driven programming and callbacks in RedM and RSG Framework"
+---
+
+## Understanding Events
+
+Events are the primary way to communicate between **client** and **server** scripts in RedM. They allow you to send messages, trigger actions, and share data across different parts of your resource.
+
+<Check>
+Events enable asynchronous communication - you can trigger an event without waiting for a response!
+</Check>
+
+---
+
+## Event Types
+
+### 1. Client → Server Events
+
+Send data from client to server:
+
+```lua
+-- CLIENT SIDE
+TriggerServerEvent('eventName', arg1, arg2, arg3)
+```
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('eventName', function(arg1, arg2, arg3)
+    local src = source -- Player who triggered the event
+    print('Received from client', src, arg1, arg2, arg3)
+end)
+```
+
+**Real Example from RSG:**
+```lua
+-- CLIENT SIDE (rsg-banking)
+TriggerServerEvent('rsg-banking:server:transact', type, amount)
+```
+
+```lua
+-- SERVER SIDE (rsg-banking)
+RegisterNetEvent('rsg-banking:server:transact', function(type, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    if type == 1 then -- Withdraw
+        local currentBank = Player.Functions.GetMoney('bank')
+        if currentBank >= amount then
+            Player.Functions.RemoveMoney('bank', amount, 'bank-withdraw')
+            Player.Functions.AddMoney('cash', amount, 'bank-withdraw')
+        end
+    elseif type == 2 then -- Deposit
+        local currentCash = Player.Functions.GetMoney('cash')
+        if currentCash >= amount then
+            Player.Functions.RemoveMoney('cash', amount, 'bank-deposit')
+            Player.Functions.AddMoney('bank', amount, 'bank-deposit')
+        end
+    end
+end)
+```
+
+### 2. Server → Client Events
+
+Send data from server to specific client(s):
+
+```lua
+-- SERVER SIDE
+TriggerClientEvent('eventName', source, arg1, arg2, arg3)
+
+-- To all clients
+TriggerClientEvent('eventName', -1, arg1, arg2, arg3)
+```
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('eventName', function(arg1, arg2, arg3)
+    print('Received from server', arg1, arg2, arg3)
+end)
+```
+
+**Real Example from RSG:**
+```lua
+-- SERVER SIDE (rsg-inventory)
+TriggerClientEvent('rsg-inventory:client:updateInventory', src)
+```
+
+```lua
+-- CLIENT SIDE (rsg-inventory)
+RegisterNetEvent('rsg-inventory:client:updateInventory', function()
+    -- Refresh inventory UI
+    SendNUIMessage({
+        action = 'update',
+        inventory = RSGCore.Functions.GetPlayerData().items
+    })
+end)
+```
+
+### 3. Local Events (Same Side)
+
+Events that stay on the same side (client-to-client or server-to-server):
+
+```lua
+-- CLIENT SIDE
+TriggerEvent('eventName', arg1, arg2)
+
+RegisterNetEvent('eventName', function(arg1, arg2)
+    -- Handle event
+end)
+```
+
+<Warning>
+Local events on client do NOT sync between players. Each client's local events are independent!
+</Warning>
+
+---
+
+## Event Security
+
+### Always Validate Server Events
+
+<Warning>
+**NEVER trust data from client events!** Always validate on server-side.
+</Warning>
+
+```lua
+-- BAD - No validation
+RegisterNetEvent('admin:giveWeapon', function(weaponName)
+    local src = source
+    -- Anyone can trigger this and become admin!
+    exports['rsg-inventory']:AddItem(src, weaponName, 1, nil, nil, 'admin-given')
+end)
+
+-- GOOD - Proper validation
+RegisterNetEvent('admin:giveWeapon', function(targetId, weaponName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check permissions
+    if not RSGCore.Functions.HasPermission(src, 'admin') then
+        return -- Not admin, ignore
+    end
+
+    -- Validate weapon exists
+    if not RSGCore.Shared.Weapons[weaponName] then
+        return -- Invalid weapon
+    end
+
+    -- Validate target exists
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then return end
+
+    -- Now it's safe to give weapon
+    exports['rsg-inventory']:AddItem(targetId, weaponName, 1, nil, nil, 'admin-given')
+end)
+```
+
+### Common Validation Patterns
+
+```lua
+RegisterNetEvent('shop:server:purchase', function(itemName, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Validate amount is reasonable
+    if type(amount) ~= 'number' or amount < 1 or amount > 100 then
+        return
+    end
+
+    -- Validate item exists
+    local item = RSGCore.Shared.Items[itemName]
+    if not item then return end
+
+    -- Validate player has money
+    local price = item.price * amount
+    if Player.Functions.GetMoney('cash') < price then
+        lib.notify(src, {
+            description = 'Not enough money',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process purchase
+    Player.Functions.RemoveMoney('cash', price, 'shop-purchase')
+    exports['rsg-inventory']:AddItem(src, itemName, amount, nil, nil, 'shop-purchase')
+end)
+```
+
+---
+
+## Callbacks
+
+Callbacks allow you to **get a response** from an event - like a function call across client/server!
+
+### RSGCore Callbacks
+
+#### Server Callback (Most Common)
+
+Ask the server for data from client:
+
+```lua
+-- SERVER SIDE - Create callback
+RSGCore.Functions.CreateCallback('police:server:isPlayerCuffed', function(source, cb, targetId)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then
+        cb(false)
+        return
+    end
+
+    local isCuffed = Target.PlayerData.metadata.iscuffed or false
+    cb(isCuffed)
+end)
+```
+
+```lua
+-- CLIENT SIDE - Trigger callback
+RSGCore.Functions.TriggerCallback('police:server:isPlayerCuffed', function(isCuffed)
+    if isCuffed then
+        lib.notify({
+            description = 'This player is cuffed',
+            type = 'info'
+        })
+    else
+        lib.notify({
+            description = 'This player is not cuffed',
+            type = 'error'
+        })
+    end
+end, targetPlayerId)
+```
+
+**Real Example from RSG:**
+```lua
+-- SERVER SIDE (rsg-core)
+RSGCore.Functions.CreateCallback('rsg-banking:server:getBankBalance', function(source, cb, bankType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then
+        cb(0)
+        return
+    end
+
+    local balance = Player.Functions.GetMoney(bankType)
+    cb(balance)
+end)
+```
+
+```lua
+-- CLIENT SIDE (rsg-banking)
+RSGCore.Functions.TriggerCallback('rsg-banking:server:getBankBalance', function(balance)
+    SendNUIMessage({
+        action = 'updateBalance',
+        balance = balance
+    })
+end, 'bank')
+```
+
+#### Client Callback
+
+Ask the client for data from server:
+
+```lua
+-- CLIENT SIDE - Create callback
+RSGCore.Functions.CreateClientCallback('getPlayerHeading', function(cb)
+    local ped = PlayerPedId()
+    local heading = GetEntityHeading(ped)
+    cb(heading)
+end)
+```
+
+```lua
+-- SERVER SIDE - Trigger callback
+RSGCore.Functions.TriggerClientCallback('getPlayerHeading', source, function(heading)
+    print('Player heading is:', heading)
+end)
+```
+
+---
+
+## Advanced Event Patterns
+
+### Pattern 1: Event with Confirmation
+
+Send event and wait for confirmation:
+
+```lua
+-- CLIENT SIDE
+local function tryPurchase(itemName)
+    lib.notify({
+        description = 'Processing purchase...',
+        type = 'info'
+    })
+
+    TriggerServerEvent('shop:server:purchase', itemName)
+end
+
+-- Listen for confirmation
+RegisterNetEvent('shop:client:purchaseSuccess', function(itemName)
+    lib.notify({
+        description = 'Purchased ' .. itemName,
+        type = 'success'
+    })
+end)
+
+RegisterNetEvent('shop:client:purchaseFailed', function(reason)
+    lib.notify({
+        description = 'Purchase failed: ' .. reason,
+        type = 'error'
+    })
+end)
+```
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('shop:server:purchase', function(itemName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local success = -- ... purchase logic
+
+    if success then
+        TriggerClientEvent('shop:client:purchaseSuccess', src, itemName)
+    else
+        TriggerClientEvent('shop:client:purchaseFailed', src, 'Not enough money')
+    end
+end)
+```
+
+### Pattern 2: Broadcast to Nearby Players
+
+Send event only to players within range:
+
+```lua
+-- SERVER SIDE
+local function notifyNearbyPlayers(coords, radius, message)
+    local players = RSGCore.Functions.GetPlayersInScope(coords, radius)
+
+    for _, playerId in ipairs(players) do
+        TriggerClientEvent('chat:addMessage', playerId, {
+            args = {'System', message}
+        })
+    end
+end
+
+-- Usage
+local playerCoords = GetEntityCoords(GetPlayerPed(source))
+notifyNearbyPlayers(playerCoords, 50.0, 'Gunshots nearby!')
+```
+
+### Pattern 3: Chain Events
+
+One event triggers another:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('job:server:clockIn', function(jobName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Update job duty status
+    Player.Functions.SetJobDuty(true)
+
+    -- Trigger client event to show notification
+    TriggerClientEvent('job:client:onDuty', src, jobName)
+
+    -- Trigger another server event for logging
+    TriggerEvent('job:server:logDuty', src, jobName, true)
+end)
+
+RegisterNetEvent('job:server:logDuty', function(playerId, jobName, onDuty)
+    -- Log to database or console
+    print(string.format('Player %s %s for job %s', playerId, onDuty and 'clocked in' or 'clocked out', jobName))
+end)
+```
+
+---
+
+## Event Handler Management
+
+### Removing Event Handlers
+
+Sometimes you need to stop listening to events:
+
+```lua
+-- CLIENT SIDE
+local eventHandler = nil
+
+local function startListening()
+    eventHandler = AddEventHandler('someEvent', function(data)
+        print('Received:', data)
+    end)
+end
+
+local function stopListening()
+    if eventHandler then
+        RemoveEventHandler(eventHandler)
+        eventHandler = nil
+    end
+end
+
+-- Usage
+startListening()
+-- ... do stuff ...
+stopListening()
+```
+
+### One-Time Events
+
+Event that only triggers once:
+
+```lua
+-- CLIENT SIDE
+local hasTriggered = false
+
+RegisterNetEvent('tutorial:client:showWelcome', function()
+    if hasTriggered then return end
+    hasTriggered = true
+
+    lib.notify({
+        description = 'Welcome to the server!',
+        type = 'info',
+        duration = 10000
+    })
+end)
+```
+
+---
+
+## Performance Considerations
+
+### Don't Spam Events
+
+```lua
+-- BAD - Sends event every frame!
+CreateThread(function()
+    while true do
+        TriggerServerEvent('player:update', GetEntityCoords(PlayerPedId()))
+        Wait(0)
+    end
+end)
+
+-- GOOD - Sends event every 5 seconds
+CreateThread(function()
+    while true do
+        TriggerServerEvent('player:update', GetEntityCoords(PlayerPedId()))
+        Wait(5000)
+    end
+end)
+
+-- BETTER - Only send when position actually changes
+local lastCoords = vec3(0, 0, 0)
+
+CreateThread(function()
+    while true do
+        local coords = GetEntityCoords(PlayerPedId())
+        local distance = #(coords - lastCoords)
+
+        if distance > 50.0 then -- Only if moved 50 units
+            TriggerServerEvent('player:update', coords)
+            lastCoords = coords
+        end
+
+        Wait(1000)
+    end
+end)
+```
+
+### Batch Event Data
+
+```lua
+-- BAD - Multiple events
+for i = 1, 100 do
+    TriggerServerEvent('data:send', i)
+end
+
+-- GOOD - Single event with table
+local dataToSend = {}
+for i = 1, 100 do
+    dataToSend[#dataToSend + 1] = i
+end
+TriggerServerEvent('data:sendBatch', dataToSend)
+```
+
+---
+
+## Common Event Naming Conventions
+
+RSG Framework uses consistent naming:
+
+```
+resource:side:action
+```
+
+Examples:
+- `rsg-inventory:server:AddItem`
+- `rsg-banking:client:updateBalance`
+- `police:server:cuffPlayer`
+- `hospital:client:revive`
+
+<Tip>
+Follow this convention in your own resources for consistency!
+</Tip>
+
+---
+
+## Debugging Events
+
+### Print Event Triggers
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('myevent', function(...)
+    local args = {...}
+    print('^2[EVENT RECEIVED]^7 myevent from', source)
+    print('^3Arguments:^7', json.encode(args, {indent = true}))
+
+    -- Your event logic here
+end)
+```
+
+### Event Listener Helper
+
+```lua
+-- CLIENT SIDE
+local function debugEvent(eventName)
+    AddEventHandler(eventName, function(...)
+        print('^2[EVENT]^7', eventName, json.encode({...}))
+    end)
+end
+
+-- Listen to all inventory events
+debugEvent('rsg-inventory:client:updateInventory')
+debugEvent('rsg-inventory:client:ItemBox')
+```
+
+---
+
+## Complete Example: Trading System
+
+Putting it all together:
+
+```lua
+-- CLIENT SIDE
+local function requestTrade(targetId)
+    RSGCore.Functions.TriggerCallback('trade:server:requestTrade', function(accepted)
+        if accepted then
+            lib.notify({
+                description = 'Trade request accepted!',
+                type = 'success'
+            })
+            -- Open trade UI
+        else
+            lib.notify({
+                description = 'Trade request declined',
+                type = 'error'
+            })
+        end
+    end, targetId)
+end
+
+RegisterNetEvent('trade:client:receiveRequest', function(requesterId)
+    local requesterName = -- Get player name somehow
+
+    lib.alertDialog({
+        header = 'Trade Request',
+        content = requesterName .. ' wants to trade with you',
+        centered = true,
+        cancel = true
+    }, function(confirmed)
+        TriggerServerEvent('trade:server:respondToRequest', requesterId, confirmed)
+    end)
+end)
+```
+
+```lua
+-- SERVER SIDE
+local pendingTrades = {}
+
+RSGCore.Functions.CreateCallback('trade:server:requestTrade', function(source, cb, targetId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Player or not Target then
+        cb(false)
+        return
+    end
+
+    -- Store pending trade
+    pendingTrades[targetId] = {
+        requesterId = src,
+        callback = cb
+    }
+
+    -- Notify target player
+    TriggerClientEvent('trade:client:receiveRequest', targetId, src)
+
+    -- Timeout after 30 seconds
+    SetTimeout(30000, function()
+        if pendingTrades[targetId] then
+            pendingTrades[targetId].callback(false)
+            pendingTrades[targetId] = nil
+        end
+    end)
+end)
+
+RegisterNetEvent('trade:server:respondToRequest', function(requesterId, accepted)
+    local src = source
+
+    if pendingTrades[src] and pendingTrades[src].requesterId == requesterId then
+        pendingTrades[src].callback(accepted)
+        pendingTrades[src] = nil
+    end
+end)
+```
+
+---
+
+## Summary
+
+| Event Type | Trigger From | Received On | Use Case |
+|------------|--------------|-------------|----------|
+| Server Event | Client | Server | Player actions, requests |
+| Client Event | Server | Client(s) | Updates, notifications |
+| Local Event | Same side | Same side | Internal communication |
+| Callback | Either | Other side | Get data, confirmations |
+
+---
+
+## Next Steps
+
+- [Threads & Loops](/lua-reference/threads) - Creating continuous processes
+- [Common Patterns](/lua-reference/patterns) - RSG Framework best practices
+- [Performance Tips](/lua-reference/performance) - Optimize your code
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

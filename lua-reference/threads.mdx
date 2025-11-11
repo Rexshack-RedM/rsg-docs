@@ -1,0 +1,710 @@
+---
+title: "🔄 Threads & Loops"
+description: "Master asynchronous programming with CreateThread, loops, and continuous processes in RedM"
+---
+
+## What are Threads?
+
+Threads in RedM are **asynchronous processes** that run independently without blocking the main script execution. They're essential for creating continuous loops, delays, and background tasks.
+
+<Check>
+Threads allow multiple things to happen "at the same time" without freezing the game!
+</Check>
+
+---
+
+## CreateThread
+
+The primary way to create a thread in RedM:
+
+```lua
+CreateThread(function()
+    print('This runs in a thread!')
+end)
+```
+
+### Basic Thread Example
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    print('Thread started')
+    Wait(5000) -- Wait 5 seconds
+    print('5 seconds later')
+end)
+
+-- Main script continues immediately
+print('Main script continues')
+```
+
+**Output:**
+```
+Main script continues
+Thread started
+(5 seconds pass)
+5 seconds later
+```
+
+---
+
+## Wait() Function
+
+`Wait(milliseconds)` pauses the current thread without freezing the game.
+
+```lua
+CreateThread(function()
+    print('Starting countdown')
+
+    for i = 10, 1, -1 do
+        print(i)
+        Wait(1000) -- Wait 1 second
+    end
+
+    print('Countdown complete!')
+end)
+```
+
+<Warning>
+**NEVER** use `Wait(0)` in a loop unless absolutely necessary! It runs every frame and kills performance.
+</Warning>
+
+### Good Wait Times
+
+```lua
+-- BAD - Runs every frame (60+ times per second!)
+CreateThread(function()
+    while true do
+        -- Check something
+        Wait(0)
+    end
+end)
+
+-- GOOD - Runs every second
+CreateThread(function()
+    while true do
+        -- Check something
+        Wait(1000)
+    end
+end)
+
+-- BETTER - Runs only when needed
+CreateThread(function()
+    while true do
+        if someCondition then
+            -- Do something
+        end
+        Wait(5000) -- Check every 5 seconds
+    end
+end)
+```
+
+---
+
+## Infinite Loops
+
+Threads that run forever:
+
+```lua
+CreateThread(function()
+    while true do
+        -- This runs continuously
+        print('Still running...')
+        Wait(1000)
+    end
+end)
+```
+
+**Real Example from RSG:**
+```lua
+-- CLIENT SIDE (Status checks)
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+
+        if IsPedDeadOrDying(ped) then
+            -- Player is dead, handle death
+            TriggerEvent('player:client:onDeath')
+        end
+
+        Wait(1000) -- Check every second
+    end
+end)
+```
+
+---
+
+## Conditional Loops
+
+### Loop Until Condition
+
+```lua
+CreateThread(function()
+    local ready = false
+
+    while not ready do
+        -- Wait for player to load
+        local PlayerData = RSGCore.Functions.GetPlayerData()
+        if PlayerData and PlayerData.citizenid then
+            ready = true
+        end
+        Wait(100)
+    end
+
+    print('Player is ready!')
+end)
+```
+
+### Loop While Condition
+
+```lua
+CreateThread(function()
+    local inVehicle = true
+
+    while inVehicle do
+        local ped = PlayerPedId()
+
+        if not IsPedInAnyVehicle(ped) then
+            inVehicle = false
+        else
+            -- Update vehicle HUD
+            DisplayRadar(true)
+        end
+
+        Wait(100)
+    end
+
+    print('Player exited vehicle')
+end)
+```
+
+---
+
+## SetTimeout
+
+Run code once after a delay (doesn't block):
+
+```lua
+SetTimeout(5000, function()
+    print('This runs after 5 seconds')
+end)
+
+print('Main script continues immediately')
+```
+
+**Real Example from RSG:**
+```lua
+-- SERVER SIDE (Give item after delay)
+RSGCore.Commands.Add('giveitem', 'Give item to player', {
+    {name = 'id', help = 'Player ID'},
+    {name = 'item', help = 'Item name'}
+}, true, function(source, args)
+    local targetId = tonumber(args[1])
+    local itemName = args[2]
+
+    lib.notify(source, {
+        description = 'Item will be delivered in 5 seconds...',
+        type = 'info'
+    })
+
+    SetTimeout(5000, function()
+        exports['rsg-inventory']:AddItem(targetId, itemName, 1, nil, nil, 'admin-command')
+
+        lib.notify(source, {
+            description = 'Item delivered!',
+            type = 'success'
+        })
+    end)
+end)
+```
+
+---
+
+## Multiple Threads
+
+You can run multiple threads simultaneously:
+
+```lua
+-- Thread 1: Health regeneration
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+        local health = GetEntityHealth(ped)
+
+        if health < 200 then
+            SetEntityHealth(ped, health + 1)
+        end
+
+        Wait(5000) -- Regen every 5 seconds
+    end
+end)
+
+-- Thread 2: Stamina check
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+        local stamina = GetPlayerStamina(PlayerId())
+
+        if stamina < 50 then
+            print('Low stamina!')
+        end
+
+        Wait(2000) -- Check every 2 seconds
+    end
+end)
+
+-- Both threads run independently!
+```
+
+---
+
+## Breaking Out of Loops
+
+### Using break
+
+```lua
+CreateThread(function()
+    local count = 0
+
+    while true do
+        count = count + 1
+        print('Count:', count)
+
+        if count >= 10 then
+            break -- Exit the loop
+        end
+
+        Wait(1000)
+    end
+
+    print('Loop finished!')
+end)
+```
+
+### Using return
+
+```lua
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+
+        if IsEntityDead(ped) then
+            print('Player died, stopping thread')
+            return -- Exit the entire thread
+        end
+
+        -- Do something
+
+        Wait(1000)
+    end
+end)
+```
+
+---
+
+## Thread Control Patterns
+
+### Start/Stop Thread
+
+```lua
+-- CLIENT SIDE
+local activeThread = false
+
+local function startMonitoring()
+    if activeThread then return end
+    activeThread = true
+
+    CreateThread(function()
+        while activeThread do
+            -- Monitor something
+            print('Monitoring...')
+            Wait(1000)
+        end
+        print('Monitoring stopped')
+    end)
+end
+
+local function stopMonitoring()
+    activeThread = false
+end
+
+-- Usage
+startMonitoring()
+Wait(5000)
+stopMonitoring()
+```
+
+### Restart Thread
+
+```lua
+local currentThread = nil
+
+local function restartThread()
+    -- Stop existing thread
+    if currentThread then
+        currentThread = false
+    end
+
+    -- Start new thread
+    currentThread = true
+
+    CreateThread(function()
+        local thisThread = currentThread
+
+        while thisThread do
+            if thisThread ~= currentThread then
+                break -- This thread was restarted
+            end
+
+            -- Do work
+            print('Working...')
+            Wait(1000)
+        end
+    end)
+end
+```
+
+---
+
+## Common Thread Patterns
+
+### Pattern 1: Entity Proximity Check
+
+Check if player is near an entity/location:
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    local shopLocation = vector3(2633.0, -1220.0, 53.0)
+    local inRange = false
+
+    while true do
+        local playerCoords = GetEntityCoords(PlayerPedId())
+        local distance = #(playerCoords - shopLocation)
+
+        if distance < 2.0 and not inRange then
+            inRange = true
+            -- Show prompt
+            lib.showTextUI('[E] Open Shop')
+        elseif distance >= 2.0 and inRange then
+            inRange = false
+            -- Hide prompt
+            lib.hideTextUI()
+        end
+
+        -- Check every frame when close, less often when far
+        Wait(inRange and 0 or 1000)
+    end
+end)
+```
+
+### Pattern 2: Player State Monitor
+
+Monitor player state changes:
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    local wasInVehicle = false
+
+    while true do
+        local ped = PlayerPedId()
+        local inVehicle = IsPedInAnyVehicle(ped)
+
+        if inVehicle and not wasInVehicle then
+            -- Just entered vehicle
+            TriggerEvent('player:enteredVehicle')
+            wasInVehicle = true
+        elseif not inVehicle and wasInVehicle then
+            -- Just exited vehicle
+            TriggerEvent('player:exitedVehicle')
+            wasInVehicle = false
+        end
+
+        Wait(500)
+    end
+end)
+```
+
+### Pattern 3: Timed Buff/Debuff
+
+Apply effect for a duration:
+
+```lua
+-- CLIENT SIDE
+local function applySpeedBoost(duration)
+    CreateThread(function()
+        local ped = PlayerPedId()
+
+        -- Apply boost
+        SetPedMoveRateOverride(ped, 1.5)
+
+        lib.notify({
+            description = 'Speed boost active!',
+            type = 'success'
+        })
+
+        -- Wait for duration
+        Wait(duration)
+
+        -- Remove boost
+        SetPedMoveRateOverride(ped, 1.0)
+
+        lib.notify({
+            description = 'Speed boost ended',
+            type = 'info'
+        })
+    end)
+end
+
+-- Usage
+applySpeedBoost(10000) -- 10 second boost
+```
+
+### Pattern 4: Cooldown System
+
+Prevent spam by adding cooldowns:
+
+```lua
+-- CLIENT SIDE
+local lastUsed = 0
+local cooldown = 5000 -- 5 seconds
+
+local function useAbility()
+    local currentTime = GetGameTimer()
+
+    if currentTime - lastUsed < cooldown then
+        local remaining = math.ceil((cooldown - (currentTime - lastUsed)) / 1000)
+        lib.notify({
+            description = 'Cooldown: ' .. remaining .. 's',
+            type = 'error'
+        })
+        return
+    end
+
+    lastUsed = currentTime
+
+    -- Use ability
+    print('Ability used!')
+    TriggerServerEvent('abilities:server:useAbility')
+end
+```
+
+### Pattern 5: Resource Load Wait
+
+Wait for other resources to load:
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    -- Wait for core to be ready
+    while not RSGCore do
+        Wait(100)
+    end
+
+    -- Wait for player data
+    while not RSGCore.Functions.GetPlayerData().citizenid do
+        Wait(100)
+    end
+
+    -- Now safe to use
+    print('Player loaded:', RSGCore.Functions.GetPlayerData().citizenid)
+end)
+```
+
+---
+
+## Performance Optimization
+
+### Dynamic Wait Times
+
+Adjust wait time based on conditions:
+
+```lua
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+        local playerCoords = GetEntityCoords(ped)
+        local nearbyPlayers = RSGCore.Functions.GetPlayersInScope(playerCoords, 50.0)
+
+        -- Update more frequently when players are nearby
+        local waitTime = #nearbyPlayers > 0 and 500 or 2000
+
+        -- Do something with nearby players
+
+        Wait(waitTime)
+    end
+end)
+```
+
+### Sleep When Inactive
+
+```lua
+CreateThread(function()
+    while true do
+        local ped = PlayerPedId()
+        local vehicle = GetVehiclePedIsIn(ped, false)
+
+        if vehicle ~= 0 then
+            -- Player in vehicle, update HUD
+            DisplayRadar(true)
+            Wait(100)
+        else
+            -- Player not in vehicle, sleep longer
+            DisplayRadar(false)
+            Wait(1000)
+        end
+    end
+end)
+```
+
+---
+
+## Real RSG Framework Examples
+
+### Example 1: Duty System
+
+```lua
+-- CLIENT SIDE (rsg-policejob)
+CreateThread(function()
+    while true do
+        local PlayerData = RSGCore.Functions.GetPlayerData()
+
+        if PlayerData.job and PlayerData.job.name == 'police' then
+            if PlayerData.job.onduty then
+                -- Show police blip
+                -- Enable police features
+            else
+                -- Hide police blip
+                -- Disable police features
+            end
+            Wait(1000)
+        else
+            Wait(5000) -- Not police, check less often
+        end
+    end
+end)
+```
+
+### Example 2: Health/Hunger System
+
+```lua
+-- CLIENT SIDE (rsg-core)
+CreateThread(function()
+    while true do
+        local PlayerData = RSGCore.Functions.GetPlayerData()
+
+        if PlayerData.metadata then
+            local hunger = PlayerData.metadata.hunger or 100
+            local thirst = PlayerData.metadata.thirst or 100
+
+            if hunger <= 0 or thirst <= 0 then
+                -- Apply damage
+                local ped = PlayerPedId()
+                local health = GetEntityHealth(ped)
+                SetEntityHealth(ped, health - 5)
+            end
+        end
+
+        Wait(30000) -- Check every 30 seconds
+    end
+end)
+```
+
+### Example 3: Auto-Save
+
+```lua
+-- SERVER SIDE (rsg-core)
+CreateThread(function()
+    while true do
+        Wait(300000) -- 5 minutes
+
+        for src, Player in pairs(RSGCore.Players) do
+            if Player then
+                Player.Functions.Save()
+            end
+        end
+
+        print('[AUTO-SAVE] Saved all player data')
+    end
+end)
+```
+
+---
+
+## Debugging Threads
+
+### Thread Identifier
+
+```lua
+CreateThread(function()
+    local threadId = 'MyThread-' .. math.random(1000, 9999)
+    print('^2[THREAD START]^7', threadId)
+
+    while true do
+        -- Your code
+        Wait(1000)
+    end
+
+    print('^1[THREAD END]^7', threadId)
+end)
+```
+
+### Performance Monitor
+
+```lua
+CreateThread(function()
+    while true do
+        local startTime = GetGameTimer()
+
+        -- Your code here
+
+        local endTime = GetGameTimer()
+        local executionTime = endTime - startTime
+
+        if executionTime > 50 then
+            print('^3[WARNING]^7 Thread took', executionTime, 'ms')
+        end
+
+        Wait(1000)
+    end
+end)
+```
+
+---
+
+## Summary
+
+| Function | Purpose | Blocks Main Script |
+|----------|---------|-------------------|
+| `CreateThread()` | Create async thread | No |
+| `Wait(ms)` | Pause current thread | No (only pauses thread) |
+| `SetTimeout(ms, cb)` | Run once after delay | No |
+| `while true do` | Infinite loop | Only if no Wait() |
+
+<Warning>
+Always use `Wait()` in loops to prevent freezing the game!
+</Warning>
+
+---
+
+## Best Practices
+
+<Tip>
+1. Use appropriate wait times (avoid Wait(0))
+2. Break long operations into chunks
+3. Clean up threads when no longer needed
+4. Use dynamic wait times based on conditions
+5. Monitor thread performance
+</Tip>
+
+---
+
+## Next Steps
+
+- [Table Operations](/lua-reference/tables) - Advanced table manipulation
+- [Common Patterns](/lua-reference/patterns) - RSG Framework best practices
+- [Performance Tips](/lua-reference/performance) - Optimize your code
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

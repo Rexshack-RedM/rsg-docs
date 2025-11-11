@@ -101,9 +101,12 @@
       ]
     },
     {
-      "group": "Effective Lua",
+      "group": "Lua Fundamentals",
       "pages": [
-        "lua-reference/luabegining"
+        "lua-reference/luabegining",
+        "lua-reference/events",
+        "lua-reference/threads",
+        "lua-reference/patterns"
       ]
     }
   ],

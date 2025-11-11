@@ -1,14 +1,540 @@
 ---
-title: "⏺️ Effective RedM Lua Programming"
-description: "Welcome to some information for Lua programming practices"
+title: "⏺️ Getting Started with Lua"
+description: "Introduction to Lua programming for RedM and RSG Framework"
 ---
 
-### Creating First Resource
+## What is Lua?
 
-- RedM servers are programmed using multiple different resources (scripts). It makes it simple to write, understand, share, import and manage. Most of the resources work independently, but they can use functions from other resources or tell them to do specific actions. Resources can have server, client or both scripts. The difference between these 2 is that client scripts run on client machine and does not interrupt server (if it is not instructed to do so). While server scripts run on the server and complete tasks there unless a task on any of the client’s machine is triggered. Picture below represents that all client scripts run separately on each client machine and server scripts are running only on server.
+Lua is a lightweight, high-level scripting language designed for embedded use in applications. RedM (and FiveM) use **Lua 5.4** as their primary scripting language for creating game modifications and server resources.
+
+<Check>
+Lua is easy to learn, fast to execute, and powerful enough to create complex game systems. It's the perfect language for RedM development!
+</Check>
+
+---
+
+## Client vs Server Scripts
+
+RedM resources can have **client scripts**, **server scripts**, or **both**. Understanding the difference is crucial:
+
+### Client Scripts
+- Run on **each player's machine** independently
+- Handle visual effects, UI, local player actions
+- **Cannot** directly access server data or other players
+- File location: `client/` folder or defined as `client_script` in fxmanifest.lua
+
+### Server Scripts
+- Run **once on the server**
+- Handle game logic, database operations, player data
+- Manage communication between players
+- File location: `server/` folder or defined as `server_script` in fxmanifest.lua
+
+### Shared Scripts
+- Run on **both** client and server
+- Used for shared configurations, item definitions, etc.
+- File location: `shared/` folder or defined as `shared_script` in fxmanifest.lua
 
 ![](https://i.imgur.com/jV357dF.png)
 
 <Info>
-A thing to note is that client can not trigger tasks on other client’s machine directly. It has to go through server. For example if client A wants to send a message to a client B it must be triggered through server task as obviously none of the clients have a direct connection to each other, they are all connected through server.
+Clients **cannot** communicate directly with each other. All communication must go through the server using events.
 </Info>
+
+**Example Flow:**
+```
+Client A → Server Event → Server Processing → Client Event → Client B
+```
+
+---
+
+## Basic Lua Syntax
+
+### Variables
+
+```lua
+-- Local variables (recommended - faster and scoped)
+local playerName = 'John Doe'
+local playerAge = 25
+local isAlive = true
+
+-- Global variables (avoid unless necessary)
+globalVariable = 'I am global'
+```
+
+<Warning>
+Always use `local` variables unless you specifically need a global variable. Global variables can cause conflicts and performance issues.
+</Warning>
+
+### Data Types
+
+```lua
+-- Strings
+local message = 'Hello, RedM!'
+local message2 = "Double quotes work too"
+local longText = [[
+    Multi-line strings
+    use double brackets
+]]
+
+-- Numbers
+local health = 100
+local armor = 50.5
+local money = 1000
+
+-- Booleans
+local isDead = false
+local isAdmin = true
+
+-- Tables (arrays and dictionaries)
+local weapons = {'revolver', 'rifle', 'shotgun'}
+local player = {
+    name = 'John',
+    age = 25,
+    job = 'sheriff'
+}
+
+-- Nil (represents absence of value)
+local nothing = nil
+```
+
+### Comments
+
+```lua
+-- This is a single-line comment
+
+--[[
+    This is a
+    multi-line comment
+]]
+
+--- This is a documentation comment (used for annotations)
+---@param source number - Player server ID
+---@return string - Player name
+```
+
+---
+
+## Functions
+
+### Defining Functions
+
+```lua
+-- Basic function
+local function greet(name)
+    print('Hello, ' .. name .. '!')
+end
+
+greet('Arthur') -- Output: Hello, Arthur!
+
+-- Function with return value
+local function add(a, b)
+    return a + b
+end
+
+local sum = add(5, 3) -- sum = 8
+
+-- Function with multiple return values
+local function getCoords()
+    return 100.0, 200.0, 30.0
+end
+
+local x, y, z = getCoords()
+```
+
+### Anonymous Functions
+
+```lua
+-- Function assigned to variable
+local multiply = function(a, b)
+    return a * b
+end
+
+-- Callback function
+TriggerEvent('someEvent', function(data)
+    print('Received:', data)
+end)
+```
+
+---
+
+## Control Structures
+
+### If Statements
+
+```lua
+local health = 50
+
+if health <= 0 then
+    print('Player is dead')
+elseif health < 30 then
+    print('Player is critically wounded')
+elseif health < 70 then
+    print('Player is injured')
+else
+    print('Player is healthy')
+end
+
+-- Logical operators
+if health > 0 and armor > 0 then
+    print('Player has health and armor')
+end
+
+if isDead or isUnconscious then
+    print('Player cannot move')
+end
+
+if not isAdmin then
+    print('Player is not an admin')
+end
+```
+
+### Loops
+
+```lua
+-- For loop (numeric)
+for i = 1, 10 do
+    print('Iteration:', i)
+end
+
+-- For loop with step
+for i = 10, 1, -1 do
+    print('Countdown:', i)
+end
+
+-- For loop (iterate over table array)
+local weapons = {'revolver', 'rifle', 'shotgun'}
+for index, weapon in ipairs(weapons) do
+    print(index, weapon)
+end
+
+-- For loop (iterate over table dictionary)
+local player = {
+    name = 'John',
+    age = 25,
+    job = 'sheriff'
+}
+for key, value in pairs(player) do
+    print(key, '=', value)
+end
+
+-- While loop
+local count = 0
+while count < 5 do
+    print('Count:', count)
+    count = count + 1
+end
+
+-- Repeat-until loop
+local health = 100
+repeat
+    health = health - 10
+    print('Health:', health)
+until health <= 0
+```
+
+---
+
+## Tables (Arrays & Dictionaries)
+
+Tables are Lua's primary data structure - they can act as arrays, dictionaries, or both!
+
+### Arrays (Numeric Indices)
+
+```lua
+-- Creating an array
+local weapons = {'revolver', 'rifle', 'shotgun'}
+
+-- Accessing elements (Lua arrays start at 1, not 0!)
+print(weapons[1]) -- Output: revolver
+print(weapons[2]) -- Output: rifle
+
+-- Adding elements
+weapons[4] = 'bow'
+table.insert(weapons, 'lasso') -- Adds to end
+
+-- Removing elements
+table.remove(weapons, 2) -- Removes 'rifle'
+
+-- Get array length
+local count = #weapons
+print('Weapon count:', count)
+```
+
+### Dictionaries (Key-Value Pairs)
+
+```lua
+-- Creating a dictionary
+local player = {
+    name = 'John Doe',
+    age = 25,
+    job = 'sheriff',
+    money = 1000
+}
+
+-- Accessing values
+print(player.name) -- Output: John Doe
+print(player['age']) -- Output: 25
+
+-- Adding/modifying values
+player.job = 'deputy'
+player['money'] = 1500
+
+-- Nested tables
+local character = {
+    info = {
+        firstname = 'John',
+        lastname = 'Doe'
+    },
+    money = {
+        cash = 500,
+        bank = 2000
+    }
+}
+
+print(character.info.firstname) -- Output: John
+print(character.money.bank) -- Output: 2000
+```
+
+---
+
+## String Manipulation
+
+```lua
+-- Concatenation
+local firstName = 'John'
+local lastName = 'Doe'
+local fullName = firstName .. ' ' .. lastName
+
+-- String formatting (modern way)
+local message = string.format('Hello %s, you have $%d', playerName, money)
+
+-- String methods
+local text = 'Hello World'
+print(string.upper(text)) -- HELLO WORLD
+print(string.lower(text)) -- hello world
+print(string.len(text)) -- 11
+print(string.sub(text, 1, 5)) -- Hello
+print(string.find(text, 'World')) -- 7 11
+
+-- String splitting (common pattern)
+local function split(str, delimiter)
+    local result = {}
+    for match in (str .. delimiter):gmatch("(.-)" .. delimiter) do
+        table.insert(result, match)
+    end
+    return result
+end
+
+local parts = split('apple,banana,orange', ',')
+-- parts = {'apple', 'banana', 'orange'}
+```
+
+---
+
+## Math Operations
+
+```lua
+-- Basic arithmetic
+local a = 10
+local b = 3
+
+print(a + b)  -- 13 (addition)
+print(a - b)  -- 7 (subtraction)
+print(a * b)  -- 30 (multiplication)
+print(a / b)  -- 3.333... (division)
+print(a % b)  -- 1 (modulus - remainder)
+print(a ^ b)  -- 1000 (exponentiation)
+
+-- Math library
+print(math.abs(-10))     -- 10
+print(math.ceil(3.2))    -- 4
+print(math.floor(3.8))   -- 3
+print(math.max(5, 10))   -- 10
+print(math.min(5, 10))   -- 5
+print(math.random(1, 10)) -- Random number between 1-10
+print(math.sqrt(16))     -- 4
+
+-- Rounding (common pattern)
+local function round(num, decimals)
+    local mult = 10 ^ (decimals or 0)
+    return math.floor(num * mult + 0.5) / mult
+end
+
+print(round(3.14159, 2)) -- 3.14
+```
+
+---
+
+## Creating Your First Resource
+
+### Step 1: Create Resource Folder
+
+Create a folder in your `resources` directory:
+```
+resources/
+  [myresources]/
+    my-first-script/
+```
+
+### Step 2: Create fxmanifest.lua
+
+Every resource needs a manifest file:
+
+```lua fxmanifest.lua
+fx_version 'cerulean'
+game 'rdr3'
+rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
+
+description 'My First Script'
+version '1.0.0'
+
+client_scripts {
+    'client/client.lua'
+}
+
+server_scripts {
+    'server/server.lua'
+}
+
+shared_scripts {
+    'shared/config.lua'
+}
+```
+
+### Step 3: Create Your Scripts
+
+**shared/config.lua:**
+```lua
+Config = {}
+
+Config.WelcomeMessage = 'Welcome to my server!'
+Config.MaxPlayers = 32
+```
+
+**client/client.lua:**
+```lua
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+-- Code runs when resource starts
+CreateThread(function()
+    print('Client script loaded!')
+end)
+
+-- Listen for player spawn
+AddEventHandler('RSGCore:Client:OnPlayerLoaded', function()
+    print('Player loaded!')
+    lib.notify({
+        description = Config.WelcomeMessage,
+        type = 'info'
+    })
+end)
+```
+
+**server/server.lua:**
+```lua
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+-- Code runs when resource starts
+print('Server script loaded!')
+
+-- Register a command
+RSGCore.Commands.Add('hello', 'Say hello', {}, false, function(source, args)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    TriggerClientEvent('chat:addMessage', source, {
+        args = {'System', 'Hello ' .. Player.PlayerData.charinfo.firstname .. '!'}
+    })
+end)
+
+-- Register an event
+RegisterNetEvent('my-first-script:server:greet', function(message)
+    local src = source
+    print('Player ' .. src .. ' said: ' .. message)
+end)
+```
+
+### Step 4: Start Your Resource
+
+Add to `server.cfg`:
+```cfg
+ensure my-first-script
+```
+
+Or start it in-game:
+```
+restart my-first-script
+```
+
+---
+
+## Common Mistakes to Avoid
+
+<Warning>
+**1. Forgetting `local` keyword**
+```lua
+-- Bad
+playerName = 'John' -- Global variable!
+
+-- Good
+local playerName = 'John'
+```
+</Warning>
+
+<Warning>
+**2. Array indexing starts at 1, not 0**
+```lua
+local items = {'apple', 'banana', 'orange'}
+print(items[0]) -- nil (wrong!)
+print(items[1]) -- 'apple' (correct!)
+```
+</Warning>
+
+<Warning>
+**3. Using `==` for string/table comparison**
+```lua
+-- Numbers and booleans
+if health == 100 then -- Correct
+
+-- Strings are fine too
+if name == 'John' then -- Correct
+
+-- Tables need special handling
+local t1 = {a = 1}
+local t2 = {a = 1}
+if t1 == t2 then -- Always false! Different references
+```
+</Warning>
+
+<Warning>
+**4. Not checking for nil**
+```lua
+-- Bad
+local Player = RSGCore.Functions.GetPlayer(source)
+print(Player.PlayerData.name) -- Error if Player is nil!
+
+-- Good
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+print(Player.PlayerData.name) -- Safe
+```
+</Warning>
+
+---
+
+## Next Steps
+
+Now that you understand Lua basics, explore these advanced topics:
+
+- [Events & Callbacks](/lua-reference/events) - Communication between client and server
+- [Threads & Loops](/lua-reference/threads) - Creating continuous processes
+- [Table Operations](/lua-reference/tables) - Advanced table manipulation
+- [Common Patterns](/lua-reference/patterns) - RSG Framework patterns and best practices
+- [Performance Tips](/lua-reference/performance) - Optimize your code
+- [Debugging](/lua-reference/debugging) - Find and fix errors
+
+---
+
+<Tip>
+Practice makes perfect! Start with simple scripts and gradually add complexity as you learn.
+</Tip>

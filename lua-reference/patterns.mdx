@@ -1,0 +1,735 @@
+---
+title: "🎯 Common Patterns"
+description: "Essential coding patterns and best practices used in RSG Framework"
+---
+
+## RSG Framework Patterns
+
+These are the most common patterns you'll use when developing for RSG Framework. Master these and you'll write better, more reliable code!
+
+---
+
+## Pattern 1: Get Core Object
+
+**Every RSG resource starts with this:**
+
+```lua
+-- CLIENT or SERVER SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+```
+
+<Warning>
+Always use `local` when getting the core object to avoid conflicts!
+</Warning>
+
+**Complete Example:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+-- Wait for player to load
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+    print('Player loaded:', PlayerData.charinfo.firstname)
+end)
+```
+
+---
+
+## Pattern 2: Player Validation (Server)
+
+**Always validate the player exists before doing operations:**
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('myresource:server:doSomething', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    -- ALWAYS check if Player exists
+    if not Player then return end
+
+    -- Now safe to use Player
+    local money = Player.Functions.GetMoney('cash')
+end)
+```
+
+**Complete Example with Multiple Checks:**
+```lua
+-- SERVER SIDE
+RegisterNetEvent('shop:server:buyItem', function(itemName, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check item exists
+    local item = RSGCore.Shared.Items[itemName]
+    if not item then
+        lib.notify(src, {description = 'Invalid item', type = 'error'})
+        return
+    end
+
+    -- Check amount is valid
+    if type(amount) ~= 'number' or amount < 1 or amount > 100 then
+        lib.notify(src, {description = 'Invalid amount', type = 'error'})
+        return
+    end
+
+    -- Check player has money
+    local price = (item.price or 0) * amount
+    if Player.Functions.GetMoney('cash') < price then
+        lib.notify(src, {description = 'Not enough money', type = 'error'})
+        return
+    end
+
+    -- All checks passed, process purchase
+    Player.Functions.RemoveMoney('cash', price, 'shop-purchase')
+    exports['rsg-inventory']:AddItem(src, itemName, amount, nil, nil, 'shop-purchase')
+
+    lib.notify(src, {
+        description = 'Purchased ' .. amount .. 'x ' .. item.label,
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Pattern 3: Inventory Operations
+
+### Adding Items (Server)
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Always check if player can receive item
+local canAdd = exports['rsg-inventory']:CanAddItem(source, 'bread', 5)
+
+if canAdd then
+    exports['rsg-inventory']:AddItem(source, 'bread', 5, nil, nil, 'crafted')
+    lib.notify(source, {description = 'Crafted 5 bread', type = 'success'})
+else
+    lib.notify(source, {description = 'Inventory full!', type = 'error'})
+end
+```
+
+### Removing Items (Server)
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Check if player has item
+if exports['rsg-inventory']:HasItem(source, 'wood', 10) then
+    exports['rsg-inventory']:RemoveItem(source, 'wood', 10, nil, 'crafting')
+    lib.notify(source, {description = 'Used 10 wood', type = 'success'})
+else
+    lib.notify(source, {description = 'Not enough wood', type = 'error'})
+end
+```
+
+### Checking Items (Server)
+
+```lua
+-- SERVER SIDE
+-- Check single item
+local hasBread = exports['rsg-inventory']:HasItem(source, 'bread', 5)
+
+-- Check multiple items (all required)
+local hasItems = exports['rsg-inventory']:HasItem(source, {
+    bread = 2,
+    water = 1
+})
+
+-- Check item count
+local breadCount = exports['rsg-inventory']:GetItemCount(source, 'bread')
+```
+
+---
+
+## Pattern 4: Money Operations (Server)
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Get money
+local cash = Player.Functions.GetMoney('cash')
+local bank = Player.Functions.GetMoney('bank')
+
+-- Add money
+Player.Functions.AddMoney('cash', 100, 'job-payment')
+
+-- Remove money (with check)
+if Player.Functions.GetMoney('cash') >= 50 then
+    Player.Functions.RemoveMoney('cash', 50, 'purchase')
+else
+    lib.notify(source, {description = 'Not enough money', type = 'error'})
+end
+
+-- Set money (use sparingly)
+Player.Functions.SetMoney('bank', 1000, 'admin-set')
+```
+
+**Complete Payment Example:**
+```lua
+-- SERVER SIDE
+RegisterNetEvent('job:server:completeTask', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local payment = 150
+
+    -- Pay player
+    Player.Functions.AddMoney('cash', payment, 'task-completed')
+
+    lib.notify(src, {
+        description = 'Task completed! Earned $' .. payment,
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Pattern 5: Job/Gang Checks
+
+### Check Player's Job (Server)
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+local job = Player.PlayerData.job
+
+-- Check job name
+if job.name == 'police' then
+    print('Player is police')
+end
+
+-- Check job grade
+if job.name == 'police' and job.grade.level >= 3 then
+    print('Player is high rank police')
+end
+
+-- Check if on duty
+if job.onduty then
+    print('Player is on duty')
+end
+```
+
+### Check Player's Job (Client)
+
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local PlayerData = RSGCore.Functions.GetPlayerData()
+
+if PlayerData.job and PlayerData.job.name == 'doctor' then
+    print('You are a doctor')
+end
+
+-- Listen for job updates
+RegisterNetEvent('RSGCore:Client:OnJobUpdate', function(job)
+    print('Job changed to:', job.label)
+end)
+```
+
+**Complete Job-Restricted Example:**
+```lua
+-- SERVER SIDE
+RegisterNetEvent('police:server:handcuff', function(targetId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check if player is police
+    if Player.PlayerData.job.name ~= 'police' then
+        lib.notify(src, {description = 'You are not police!', type = 'error'})
+        return
+    end
+
+    -- Check if on duty
+    if not Player.PlayerData.job.onduty then
+        lib.notify(src, {description = 'You must be on duty!', type = 'error'})
+        return
+    end
+
+    -- Process handcuff
+    TriggerClientEvent('police:client:getHandcuffed', targetId, src)
+end)
+```
+
+---
+
+## Pattern 6: Notifications
+
+Using ox_lib notify (modern way):
+
+```lua
+-- CLIENT or SERVER SIDE
+
+-- Success notification
+lib.notify({
+    description = 'Action completed successfully!',
+    type = 'success'
+})
+
+-- Error notification
+lib.notify({
+    description = 'Something went wrong!',
+    type = 'error'
+})
+
+-- Info notification
+lib.notify({
+    description = 'Here is some information',
+    type = 'info'
+})
+
+-- Warning notification
+lib.notify({
+    description = 'Be careful!',
+    type = 'warning'
+})
+
+-- Custom duration
+lib.notify({
+    description = 'This shows for 10 seconds',
+    type = 'info',
+    duration = 10000
+})
+
+-- With title
+lib.notify({
+    title = 'Police Department',
+    description = 'Backup requested',
+    type = 'info'
+})
+```
+
+**On Server (send to client):**
+```lua
+-- SERVER SIDE
+lib.notify(source, {
+    description = 'Transaction completed',
+    type = 'success'
+})
+```
+
+---
+
+## Pattern 7: Distance Checks
+
+### Client-Side Distance Check
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    local targetCoords = vector3(2633.0, -1220.0, 53.0)
+
+    while true do
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local distance = #(playerCoords - targetCoords)
+
+        if distance < 2.0 then
+            -- Player is close
+            lib.showTextUI('[E] Interact')
+
+            if IsControlJustPressed(0, RSGCore.Shared.Keybinds['E']) then
+                TriggerEvent('interact:action')
+            end
+        else
+            lib.hideTextUI()
+        end
+
+        Wait(distance < 10.0 and 0 or 1000)
+    end
+end)
+```
+
+### Server-Side Distance Check
+
+```lua
+-- SERVER SIDE
+local function isPlayerNear(source, coords, maxDistance)
+    local ped = GetPlayerPed(source)
+    local playerCoords = GetEntityCoords(ped)
+    local distance = #(playerCoords - coords)
+
+    return distance <= maxDistance
+end
+
+-- Usage
+RegisterNetEvent('shop:server:interact', function()
+    local src = source
+    local shopCoords = vector3(2633.0, -1220.0, 53.0)
+
+    if not isPlayerNear(src, shopCoords, 5.0) then
+        lib.notify(src, {description = 'Too far from shop!', type = 'error'})
+        return
+    end
+
+    -- Player is close enough
+    -- ... open shop
+end)
+```
+
+---
+
+## Pattern 8: Useable Items
+
+Register items that can be used:
+
+```lua
+-- SERVER SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+RSGCore.Functions.CreateUseableItem('bread', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    -- Remove item
+    if exports['rsg-inventory']:RemoveItem(source, 'bread', 1, item.slot, 'consumed') then
+        -- Restore hunger
+        Player.Functions.SetMetaData('hunger', math.min(100, Player.PlayerData.metadata.hunger + 25))
+
+        lib.notify(source, {
+            description = 'You ate bread',
+            type = 'success'
+        })
+
+        -- Trigger client animation
+        TriggerClientEvent('player:client:playEatAnimation', source)
+    end
+end)
+```
+
+**With Animation (Client):**
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('player:client:playEatAnimation', function()
+    local ped = PlayerPedId()
+
+    lib.requestAnimDict('mech_inventory@eating@multi_bite@wedge_sandwich')
+
+    TaskPlayAnim(ped, 'mech_inventory@eating@multi_bite@wedge_sandwich', 'eat_wedge_sandwich', 8.0, 8.0, 3000, 0, 0, true, true, true)
+
+    Wait(3000)
+
+    ClearPedTasks(ped)
+    RemoveAnimDict('mech_inventory@eating@multi_bite@wedge_sandwich')
+end)
+```
+
+---
+
+## Pattern 9: Commands
+
+### Basic Command
+
+```lua
+-- SERVER SIDE
+RSGCore.Commands.Add('heal', 'Heal yourself', {}, false, function(source, args)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local ped = GetPlayerPed(source)
+    SetEntityHealth(ped, 200)
+
+    lib.notify(source, {
+        description = 'You have been healed',
+        type = 'success'
+    })
+end)
+```
+
+### Command with Arguments
+
+```lua
+-- SERVER SIDE
+RSGCore.Commands.Add('givemoney', 'Give money to player', {
+    {name = 'id', help = 'Player ID'},
+    {name = 'amount', help = 'Amount of money'}
+}, true, function(source, args)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local targetId = tonumber(args[1])
+    local amount = tonumber(args[2])
+
+    if not targetId or not amount then
+        lib.notify(src, {description = 'Invalid arguments', type = 'error'})
+        return
+    end
+
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then
+        lib.notify(src, {description = 'Player not found', type = 'error'})
+        return
+    end
+
+    -- Check if player has money
+    if Player.Functions.GetMoney('cash') < amount then
+        lib.notify(src, {description = 'Not enough money', type = 'error'})
+        return
+    end
+
+    -- Transfer money
+    Player.Functions.RemoveMoney('cash', amount, 'money-transfer')
+    Target.Functions.AddMoney('cash', amount, 'money-transfer')
+
+    lib.notify(src, {description = 'Sent $' .. amount, type = 'success'})
+    lib.notify(targetId, {description = 'Received $' .. amount, type = 'success'})
+end, 'user')
+```
+
+### Admin Command
+
+```lua
+-- SERVER SIDE
+RSGCore.Commands.Add('giveitem', 'Give item to player', {
+    {name = 'id', help = 'Player ID'},
+    {name = 'item', help = 'Item name'},
+    {name = 'amount', help = 'Amount (optional)'}
+}, true, function(source, args)
+    local targetId = tonumber(args[1])
+    local itemName = args[2]
+    local amount = tonumber(args[3]) or 1
+
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then return end
+
+    exports['rsg-inventory']:AddItem(targetId, itemName, amount, nil, nil, 'admin-give')
+
+    lib.notify(source, {
+        description = 'Gave ' .. amount .. 'x ' .. itemName,
+        type = 'success'
+    })
+end, 'admin')
+```
+
+---
+
+## Pattern 10: ox_lib Input Dialogs
+
+Get user input with validation:
+
+```lua
+-- CLIENT SIDE
+local function getPlayerInput()
+    local input = lib.inputDialog('Transfer Money', {
+        {
+            type = 'number',
+            label = 'Player ID',
+            description = 'Who to send money to',
+            required = true,
+            min = 1
+        },
+        {
+            type = 'number',
+            label = 'Amount',
+            description = 'How much to send',
+            required = true,
+            min = 1,
+            max = 10000
+        }
+    })
+
+    if not input then return end
+
+    local playerId = input[1]
+    local amount = input[2]
+
+    TriggerServerEvent('money:server:transfer', playerId, amount)
+end
+
+-- Usage
+RegisterCommand('sendmoney', function()
+    getPlayerInput()
+end)
+```
+
+---
+
+## Pattern 11: Progress Bars
+
+Show progress for actions:
+
+```lua
+-- CLIENT SIDE
+local function craftItem()
+    if lib.progressBar({
+        duration = 5000,
+        label = 'Crafting item...',
+        useWhileDead = false,
+        canCancel = true,
+        disable = {
+            move = true,
+            car = true,
+            combat = true
+        },
+        anim = {
+            dict = 'amb_work@world_human_box_pickup@1@male_a@stand_exit_withprop',
+            clip = 'exit_front'
+        }
+    }) then
+        -- Completed
+        TriggerServerEvent('crafting:server:craftItem', 'wooden_chair')
+    else
+        -- Cancelled
+        lib.notify({description = 'Crafting cancelled', type = 'error'})
+    end
+end
+```
+
+---
+
+## Pattern 12: Context Menus
+
+Create interactive menus:
+
+```lua
+-- CLIENT SIDE
+local function openJobMenu()
+    lib.registerContext({
+        id = 'job_menu',
+        title = 'Job Actions',
+        options = {
+            {
+                title = 'Clock In/Out',
+                description = 'Toggle duty status',
+                icon = 'clock',
+                onSelect = function()
+                    TriggerServerEvent('job:server:toggleDuty')
+                end
+            },
+            {
+                title = 'Access Stash',
+                description = 'Open job storage',
+                icon = 'box',
+                onSelect = function()
+                    TriggerServerEvent('job:server:openStash')
+                end
+            },
+            {
+                title = 'Vehicle Menu',
+                description = 'Spawn job vehicles',
+                icon = 'car',
+                arrow = true,
+                onSelect = function()
+                    openVehicleMenu()
+                end
+            }
+        }
+    })
+
+    lib.showContext('job_menu')
+end
+
+-- Usage
+RegisterCommand('jobmenu', function()
+    openJobMenu()
+end)
+```
+
+---
+
+## Pattern 13: Target System (ox_target)
+
+Add interactive zones/entities:
+
+```lua
+-- CLIENT SIDE
+exports.ox_target:addBoxZone({
+    coords = vector3(2633.0, -1220.0, 53.0),
+    size = vector3(2, 2, 2),
+    rotation = 45,
+    debug = false,
+    options = {
+        {
+            name = 'open_shop',
+            icon = 'fa-solid fa-shop',
+            label = 'Open Shop',
+            onSelect = function()
+                TriggerServerEvent('shop:server:openShop')
+            end
+        },
+        {
+            name = 'talk_to_owner',
+            icon = 'fa-solid fa-comment',
+            label = 'Talk to Owner',
+            onSelect = function()
+                TriggerEvent('chat:startConversation')
+            end
+        }
+    }
+})
+```
+
+---
+
+## Pattern 14: Cleanup on Resource Stop
+
+Always clean up when resource stops:
+
+```lua
+-- CLIENT SIDE
+local activeBlips = {}
+local activeObjects = {}
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+
+    -- Clean up blips
+    for _, blip in pairs(activeBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
+
+    -- Clean up objects
+    for _, object in pairs(activeObjects) do
+        if DoesEntityExist(object) then
+            DeleteObject(object)
+        end
+    end
+
+    print('Resource cleaned up')
+end)
+```
+
+---
+
+## Summary: Essential Patterns Checklist
+
+<Check>
+1. **Always** get RSGCore object with `local`
+2. **Always** validate Player exists on server
+3. **Always** check inventory space before adding items
+4. **Always** check money/items before removing
+5. **Always** validate client input on server
+6. **Always** use appropriate Wait() times in loops
+7. **Always** clean up on resource stop
+8. **Always** use lib.notify for user feedback
+</Check>
+
+---
+
+## Next Steps
+
+- [Table Operations](/lua-reference/tables) - Advanced table manipulation
+- [Performance Tips](/lua-reference/performance) - Optimize your code
+- [Debugging](/lua-reference/debugging) - Find and fix errors
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!
