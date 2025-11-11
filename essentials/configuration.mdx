@@ -1,0 +1,445 @@
+---
+title: "⚙️ RSG Core Configuration"
+description: "Complete guide to configuring RSG Core (config.lua)"
+---
+
+## Introduction
+
+The `rsg-core/config.lua` file contains all the core configuration options for your RSG Framework server. This file controls player defaults, money systems, server settings, and more.
+
+**Location**: `resources/[framework]/rsg-core/config.lua`
+
+---
+
+## General Settings
+
+### Max Players
+
+```lua
+RSGConfig.MaxPlayers = GetConvarInt('sv_maxclients', 48)
+```
+
+* Gets the maximum players from your `server.cfg`
+* Default: 48 players
+* Set in `server.cfg`: `sv_maxclients 48`
+
+### Default Spawn
+
+```lua
+RSGConfig.DefaultSpawn = vector4(-1035.71, -2731.87, 12.86, 0.0)
+```
+
+* The default spawn location for new players
+* Format: `vector4(x, y, z, heading)`
+* This is used when a player has no saved position
+
+### Update Interval
+
+```lua
+RSGConfig.UpdateInterval = 5
+```
+
+* How often (in minutes) player data is automatically saved to the database
+* Default: 5 minutes
+* Lower values = more frequent saves but more database load
+
+### Hide Player Names
+
+```lua
+RSGConfig.HidePlayerNames = true
+```
+
+* Whether to hide player names above their heads
+* `true` = Names hidden (more immersive RP)
+* `false` = Names visible
+
+### Reveal Map
+
+```lua
+RSGConfig.Player.RevealMap = true
+```
+
+* Whether the map is fully revealed for players
+* `true` = Full map revealed
+* `false` = Map fog of war enabled
+
+---
+
+## Money System Configuration
+
+### Money Types
+
+```lua
+RSGConfig.Money.MoneyTypes = {
+    cash = 50,
+    bank = 0,
+    valbank = 0,
+    rhobank = 0,
+    blkbank = 0,
+    armbank = 0,
+    bloodmoney = 0
+}
+```
+
+* Defines all money types and their starting amounts
+* **cash**: Physical money in player's pocket
+* **bank**: General bank account (deprecated, use town banks)
+* **valbank**: Valentine Bank account
+* **rhobank**: Rhodes Bank account
+* **blkbank**: Blackwater Bank account
+* **armbank**: Armadillo Bank account
+* **bloodmoney**: Illegal money for criminal activities
+
+<Warning>
+Once you add a money type, it will NOT be automatically removed from existing player data in the database!
+</Warning>
+
+### Don't Allow Minus
+
+```lua
+RSGConfig.Money.DontAllowMinus = { 'cash', 'bloodmoney' }
+```
+
+* Money types that cannot go below $0
+* These types will prevent transactions if the player doesn't have enough
+* Bank accounts can go negative (up to the minus limit)
+
+### Minus Limit
+
+```lua
+RSGConfig.Money.MinusLimit = -5000
+```
+
+* The maximum amount bank accounts can go into debt
+* Default: -$5000
+* Only affects money types NOT in `DontAllowMinus`
+
+### Paycheck Timeout
+
+```lua
+RSGConfig.Money.PayCheckTimeOut = 10
+```
+
+* How often (in minutes) players receive their job paycheck
+* Default: 10 minutes
+* Payment amount is defined in `shared/jobs.lua`
+
+### Paycheck from Society
+
+```lua
+RSGConfig.Money.PayCheckSociety = false
+```
+
+* If `true`: Paychecks come from the society/business account (requires rsg-banking)
+* If `false`: Paychecks are generated (money printer)
+* When true, businesses need funds to pay employees
+
+### Enable Money Items
+
+```lua
+RSGConfig.Money.EnableMoneyItems = true
+```
+
+* If `true`: Cash and bloodmoney are physical inventory items
+* If `false`: Cash and bloodmoney are virtual (like GTA Online)
+* When enabled, cash can be dropped, traded, stolen
+
+<Check>
+This setting makes the economy more realistic as players must physically carry cash
+</Check>
+
+---
+
+## Player Configuration
+
+### Blood Types
+
+```lua
+RSGConfig.Player.Bloodtypes = {
+    'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
+}
+```
+
+* Available blood types for players
+* Randomly assigned on character creation
+* Can be used for medical RP
+
+### Player Defaults
+
+The `RSGConfig.Player.PlayerDefaults` table defines all default values for new characters:
+
+#### Character Info Defaults
+
+```lua
+charinfo = {
+    firstname = 'Firstname',
+    lastname = 'Lastname',
+    birthdate = '00-00-0000',
+    gender = 0,
+    nationality = 'USA',
+    account = function() return RSGCore.Functions.CreateAccountNumber() end
+}
+```
+
+* **gender**: `0` = Male, `1` = Female
+* **account**: Automatically generated bank account number
+
+#### Job Defaults
+
+```lua
+job = {
+    name = 'unemployed',
+    label = 'Civilian',
+    payment = 10,
+    type = 'none',
+    onduty = false,
+    isboss = false,
+    grade = {
+        name = 'Freelancer',
+        level = 0
+    }
+}
+```
+
+* New players start as unemployed civilians
+* Grade 0 with $10 payment per paycheck
+
+#### Gang Defaults
+
+```lua
+gang = {
+    name = 'none',
+    label = 'No Gang Affiliation',
+    isboss = false,
+    grade = {
+        name = 'none',
+        level = 0
+    }
+}
+```
+
+* New players have no gang affiliation by default
+
+#### Metadata Defaults
+
+```lua
+metadata = {
+    health = 600,
+    hunger = 100,
+    thirst = 100,
+    cleanliness = 100,
+    stress = 0,
+    isdead = false,
+    armor = 0,
+    ishandcuffed = false,
+    injail = 0,
+    jailitems = {},
+    status = {},
+    rep = {},
+    callsign = 'NO CALLSIGN',
+    bloodtype = function() return RSGConfig.Player.Bloodtypes[math.random(1, #RSGConfig.Player.Bloodtypes)] end,
+    fingerprint = function() return RSGCore.Player.CreateFingerId() end,
+    walletid = function() return RSGCore.Player.CreateWalletId() end,
+    criminalrecord = {
+        hasRecord = false,
+        date = nil
+    },
+}
+```
+
+<Note>
+**Hunger, Thirst, Cleanliness**: Scale from 0-100
+- 100 = Full/Clean
+- 0 = Empty/Dirty
+
+**Health**: RedM uses 0-600 scale (not 0-100 like GTA)
+</Note>
+
+#### Inventory Defaults
+
+```lua
+weight = 35000,
+slots = 25,
+```
+
+* **weight**: Maximum carry weight (35kg = 35000)
+* **slots**: Number of inventory slots
+
+---
+
+## Server Configuration
+
+### Server Closed
+
+```lua
+RSGConfig.Server.Closed = false
+RSGConfig.Server.ClosedReason = 'Server Closed'
+```
+
+* `Closed = true`: Only players with admin permission can join
+* `ClosedReason`: Message shown to players when server is closed
+* Useful for maintenance or development
+
+### Whitelist
+
+```lua
+RSGConfig.Server.Whitelist = false
+RSGConfig.Server.WhitelistPermission = 'admin'
+```
+
+* `Whitelist = true`: Only whitelisted players can join
+* `WhitelistPermission`: The ace permission required to join when whitelist is on
+* Players need the permission set in `server.cfg`
+
+### PVP Settings
+
+```lua
+RSGConfig.Server.PVP = true
+RSGConfig.EnablePVP = true
+```
+
+* Controls whether players can damage each other
+* `true` = PVP enabled
+* `false` = PVP disabled (players cannot hurt each other)
+
+### Discord Link
+
+```lua
+RSGConfig.Server.Discord = ''
+```
+
+* Your Discord invite link
+* Shown in kick messages
+* Example: `'https://discord.gg/your-invite'`
+
+### Check Duplicate License
+
+```lua
+RSGConfig.Server.CheckDuplicateLicense = true
+```
+
+* If `true`: Prevents players from connecting with duplicate Rockstar licenses
+* Prevents multi-boxing/multiple accounts
+* Recommended: keep as `true`
+
+### Permissions
+
+```lua
+RSGConfig.Server.Permissions = { 'god', 'admin', 'mod' }
+```
+
+* Available permission levels for your server
+* You can add custom levels (e.g., `'helper'`, `'vip'`)
+* Set in `server.cfg` using ace permissions:
+
+```lua
+# Example in server.cfg
+add_ace rsgcore.god command allow
+add_principal rsgcore.god group.admin
+add_principal rsgcore.god rsgcore.admin
+add_principal rsgcore.admin rsgcore.mod
+```
+
+---
+
+## Commands Configuration
+
+### OOC Color
+
+```lua
+RSGConfig.Commands.OOCColor = { 255, 151, 133 }
+```
+
+* RGB color code for Out-Of-Character (OOC) chat messages
+* Format: `{ Red, Green, Blue }` (0-255 for each)
+
+---
+
+## Prompt Distance
+
+```lua
+RSGConfig.PromptDistance = 1.5
+```
+
+* Default interaction distance for prompts (in meters)
+* Used by the prompt system in `rsg-core/client/prompts.lua`
+* Players must be within this distance to see/use prompts
+
+---
+
+## Example: Custom Configuration
+
+Here's an example of how you might customize your config:
+
+```lua
+-- Increase player capacity
+RSGConfig.MaxPlayers = GetConvarInt('sv_maxclients', 64)
+
+-- Change default spawn to Valentine
+RSGConfig.DefaultSpawn = vector4(-175.89, 627.01, 114.09, 180.0)
+
+-- Give players more starting money
+RSGConfig.Money.MoneyTypes = {
+    cash = 250,
+    bank = 0,
+    valbank = 500,
+    rhobank = 0,
+    blkbank = 0,
+    armbank = 0,
+    bloodmoney = 0
+}
+
+-- Enable whitelist
+RSGConfig.Server.Whitelist = true
+RSGConfig.Server.WhitelistPermission = 'whitelist'
+
+-- Disable PVP for RP server
+RSGConfig.Server.PVP = false
+RSGConfig.EnablePVP = false
+
+-- Faster paychecks
+RSGConfig.Money.PayCheckTimeOut = 5
+
+-- More inventory space
+RSGConfig.Player.PlayerDefaults.weight = 50000
+RSGConfig.Player.PlayerDefaults.slots = 30
+```
+
+---
+
+## Tips & Best Practices
+
+<Tip>
+**Save before editing**: Always backup your `config.lua` before making changes
+</Tip>
+
+<Warning>
+**Restart required**: Changes to `config.lua` require a full server restart to take effect
+</Warning>
+
+<Check>
+**Test thoroughly**: Test all config changes on a development server before applying to production
+</Check>
+
+### Performance Considerations
+
+* **UpdateInterval**: Lower values increase database writes
+  - 5 minutes is a good balance
+  - Don't go below 3 minutes on busy servers
+
+* **PayCheckTimeOut**: More frequent paychecks = more economy velocity
+  - 10 minutes is standard
+  - Consider your server's economy when adjusting
+
+### Roleplay Considerations
+
+* **EnableMoneyItems**: Most RP servers keep this `true` for realism
+* **HidePlayerNames**: Set to `true` for immersive RP
+* **PVP**: Many RP servers disable this except in specific zones
+* **Whitelist**: Recommended for serious RP communities
+
+---
+
+## Need Help?
+
+If you're unsure about any setting, join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744) for support!

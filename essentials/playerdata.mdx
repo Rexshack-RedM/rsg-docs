@@ -441,3 +441,363 @@ function RSGCore.Player.DeleteCharacter(source, citizenid)
     end
 end
 ```
+
+---
+
+## Player Object Functions
+
+Once you have a Player object (via `RSGCore.Functions.GetPlayer(source)`), you can use the following functions on that player:
+
+### Player.Functions.SetJob
+
+* Sets a player's job and grade
+
+```lua
+function Player.Functions.SetJob(job, grade)
+    job = job:lower()
+    grade = grade or '0'
+    -- Sets the job and triggers events
+    return true/false
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetJob('vallaw', '2') -- Set to Valentine Law Sheriff
+```
+
+### Player.Functions.SetGang
+
+* Sets a player's gang and grade
+
+```lua
+function Player.Functions.SetGang(gang, grade)
+    gang = gang:lower()
+    grade = grade or '0'
+    -- Sets the gang and triggers events
+    return true/false
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetGang('odriscoll', '1') -- Set to O'Driscoll Enforcer
+```
+
+### Player.Functions.SetJobDuty
+
+* Sets a player's on/off duty status for their job
+
+```lua
+function Player.Functions.SetJobDuty(onDuty)
+    -- Sets duty status and triggers events
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetJobDuty(true) -- Clock player in
+Player.Functions.SetJobDuty(false) -- Clock player out
+```
+
+### Player.Functions.AddMoney
+
+* Add money to a player's account
+
+```lua
+function Player.Functions.AddMoney(moneytype, amount, reason)
+    -- Adds money and triggers events/logs
+    return true/false
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+if Player.Functions.AddMoney('cash', 100, 'Sold item') then
+    print('Added $100 cash to player')
+end
+
+-- Different money types: 'cash', 'bank', 'valbank', 'rhobank', 'blkbank', 'armbank', 'bloodmoney'
+```
+
+### Player.Functions.RemoveMoney
+
+* Remove money from a player's account
+
+```lua
+function Player.Functions.RemoveMoney(moneytype, amount, reason)
+    -- Removes money if player has enough
+    return true/false
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+if Player.Functions.RemoveMoney('cash', 50, 'Bought item') then
+    print('Removed $50 cash from player')
+else
+    print('Player does not have enough money')
+end
+```
+
+### Player.Functions.SetMoney
+
+* Set a player's money to a specific amount
+
+```lua
+function Player.Functions.SetMoney(moneytype, amount, reason)
+    -- Sets money to exact amount
+    return true/false
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetMoney('bank', 5000, 'Admin set money')
+```
+
+### Player.Functions.GetMoney
+
+* Get the amount of money a player has in a specific account
+
+```lua
+function Player.Functions.GetMoney(moneytype)
+    return amount
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+local cashAmount = Player.Functions.GetMoney('cash')
+print('Player has $' .. cashAmount .. ' cash')
+```
+
+### Player.Functions.SetMetaData
+
+* Set metadata for a player
+
+```lua
+function Player.Functions.SetMetaData(meta, val)
+    -- Sets metadata (hunger, thirst, cleanliness are clamped to 0-100)
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetMetaData('hunger', 75) -- Set hunger to 75
+Player.Functions.SetMetaData('thirst', 80) -- Set thirst to 80
+Player.Functions.SetMetaData('isdead', false) -- Set player as alive
+Player.Functions.SetMetaData('armor', 100) -- Set armor to 100
+
+-- You can also pass a table to set multiple at once
+Player.Functions.SetMetaData({
+    hunger = 100,
+    thirst = 100,
+    stress = 0
+})
+```
+
+### Player.Functions.GetMetaData
+
+* Get metadata for a player
+
+```lua
+function Player.Functions.GetMetaData(meta)
+    return value
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+local hunger = Player.Functions.GetMetaData('hunger')
+if hunger < 20 then
+    print('Player is very hungry!')
+end
+```
+
+### Player.Functions.AddRep
+
+* Add reputation points for a specific reputation type
+
+```lua
+function Player.Functions.AddRep(rep, amount)
+    -- Adds reputation points
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.AddRep('hunting', 10) -- Add 10 hunting rep
+Player.Functions.AddRep('fishing', 5) -- Add 5 fishing rep
+```
+
+### Player.Functions.RemoveRep
+
+* Remove reputation points for a specific reputation type
+
+```lua
+function Player.Functions.RemoveRep(rep, amount)
+    -- Removes reputation points (won't go below 0)
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.RemoveRep('hunting', 5) -- Remove 5 hunting rep
+```
+
+### Player.Functions.GetRep
+
+* Get reputation points for a specific reputation type
+
+```lua
+function Player.Functions.GetRep(rep)
+    return amount
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+local huntingRep = Player.Functions.GetRep('hunting')
+if huntingRep >= 100 then
+    print('Player is a master hunter!')
+end
+```
+
+### Player.Functions.HasItem
+
+* Check if player has a specific item
+
+```lua
+function Player.Functions.HasItem(items, amount)
+    return RSGCore.Functions.HasItem(source, items, amount)
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+if Player.Functions.HasItem('bread', 1) then
+    print('Player has bread')
+end
+```
+
+### Player.Functions.SetPlayerData
+
+* Set any player data field
+
+```lua
+function Player.Functions.SetPlayerData(key, val)
+    -- Sets player data and updates
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetPlayerData('weight', 50000) -- Change inventory weight
+Player.Functions.SetPlayerData('slots', 30) -- Change inventory slots
+```
+
+### Player.Functions.Save
+
+* Manually save a player's data to database
+
+```lua
+function Player.Functions.Save()
+    -- Saves player data to database
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+-- Make changes to player data
+Player.Functions.SetMoney('cash', 1000, 'test')
+-- Manually save
+Player.Functions.Save()
+```
+
+### Player.Functions.Logout
+
+* Log a player out (removes from active players)
+
+```lua
+function Player.Functions.Logout()
+    -- Logs player out and triggers events
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.Logout()
+```
+
+### Player.Functions.UpdatePlayerData
+
+* Trigger an update of player data to client
+
+```lua
+function Player.Functions.UpdatePlayerData()
+    -- Updates player data on client
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayer(source)
+-- Make changes
+Player.PlayerData.charinfo.firstname = 'John'
+-- Manually trigger update
+Player.Functions.UpdatePlayerData()
+```
+
+---
+
+## Accessing Player Data
+
+Once you have a Player object, you can access their data directly:
+
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- Access character info
+local firstname = Player.PlayerData.charinfo.firstname
+local lastname = Player.PlayerData.charinfo.lastname
+local birthdate = Player.PlayerData.charinfo.birthdate
+local gender = Player.PlayerData.charinfo.gender
+local account = Player.PlayerData.charinfo.account
+
+-- Access money
+local cash = Player.PlayerData.money.cash
+local bank = Player.PlayerData.money.bank
+
+-- Access job info
+local jobName = Player.PlayerData.job.name
+local jobLabel = Player.PlayerData.job.label
+local jobGrade = Player.PlayerData.job.grade.level
+local jobGradeName = Player.PlayerData.job.grade.name
+local jobPayment = Player.PlayerData.job.payment
+local onDuty = Player.PlayerData.job.onduty
+local isBoss = Player.PlayerData.job.isboss
+
+-- Access gang info
+local gangName = Player.PlayerData.gang.name
+local gangLabel = Player.PlayerData.gang.label
+local gangGrade = Player.PlayerData.gang.grade.level
+local gangIsBoss = Player.PlayerData.gang.isboss
+
+-- Access metadata
+local hunger = Player.PlayerData.metadata.hunger
+local thirst = Player.PlayerData.metadata.thirst
+local cleanliness = Player.PlayerData.metadata.cleanliness
+local stress = Player.PlayerData.metadata.stress
+local isDead = Player.PlayerData.metadata.isdead
+local armor = Player.PlayerData.metadata.armor
+local bloodtype = Player.PlayerData.metadata.bloodtype
+local fingerprint = Player.PlayerData.metadata.fingerprint
+local walletid = Player.PlayerData.metadata.walletid
+local callsign = Player.PlayerData.metadata.callsign
+
+-- Access other info
+local citizenid = Player.PlayerData.citizenid
+local license = Player.PlayerData.license
+local name = Player.PlayerData.name
+local source = Player.PlayerData.source
+```

@@ -240,3 +240,458 @@ local Player = RSGCore.Functions.GetPlayer(source)
 if not Player.Functions.GetItemByName('my_cool_item') then return end
 RSGCore.Functions.UseItem(source, 'my_cool_item')
 ```
+
+### RSGCore.Functions.GetOfflinePlayerByCitizenId
+
+* Get offline player data by citizen id (pulls from database)
+
+```lua
+---@param citizenid string
+---@return table?
+function RSGCore.Functions.GetOfflinePlayerByCitizenId(citizenid)
+    return RSGCore.Player.GetOfflinePlayer(citizenid)
+end
+
+-- Example
+
+local OfflinePlayer = RSGCore.Functions.GetOfflinePlayerByCitizenId('ABC12345')
+if OfflinePlayer then
+    print(OfflinePlayer.PlayerData.charinfo.firstname)
+end
+```
+
+### RSGCore.Functions.GetPlayerByLicense
+
+* Get player by license (checks online players first, then database)
+
+```lua
+---@param license string
+---@return table?
+function RSGCore.Functions.GetPlayerByLicense(license)
+    return RSGCore.Player.GetPlayerByLicense(license)
+end
+
+-- Example
+
+local license = 'license:1234567890abcdef'
+local Player = RSGCore.Functions.GetPlayerByLicense(license)
+if Player then
+    print(Player.PlayerData.name)
+end
+```
+
+### RSGCore.Functions.GetPlayerByAccount
+
+* Get player by account number
+
+```lua
+---@param account string
+---@return table?
+function RSGCore.Functions.GetPlayerByAccount(account)
+    for src in pairs(RSGCore.Players) do
+        if RSGCore.Players[src].PlayerData.charinfo.account == account then
+            return RSGCore.Players[src]
+        end
+    end
+    return nil
+end
+
+-- Example
+
+local Player = RSGCore.Functions.GetPlayerByAccount('US04RSG1234567890')
+if Player then
+    print(Player.PlayerData.citizenid)
+end
+```
+
+### RSGCore.Functions.GetPlayerByCharInfo
+
+* Get player by any character info property
+
+```lua
+---@param property string
+---@param value string
+---@return table?
+function RSGCore.Functions.GetPlayerByCharInfo(property, value)
+    for src in pairs(RSGCore.Players) do
+        local charinfo = RSGCore.Players[src].PlayerData.charinfo
+        if charinfo[property] ~= nil and charinfo[property] == value then
+            return RSGCore.Players[src]
+        end
+    end
+    return nil
+end
+
+-- Example
+
+-- Find player by first name
+local Player = RSGCore.Functions.GetPlayerByCharInfo('firstname', 'John')
+if Player then
+    print(Player.PlayerData.charinfo.lastname)
+end
+```
+
+### RSGCore.Functions.GetPlayersOnDuty
+
+* Get all players on duty for a specific job
+
+```lua
+---@param job string
+---@return table, number
+function RSGCore.Functions.GetPlayersOnDuty(job)
+    local players = {}
+    local count = 0
+    for src, Player in pairs(RSGCore.Players) do
+        if Player.PlayerData.job.name == job then
+            if Player.PlayerData.job.onduty then
+                players[#players + 1] = src
+                count += 1
+            end
+        end
+    end
+    return players, count
+end
+
+-- Example
+
+local cops, copCount = RSGCore.Functions.GetPlayersOnDuty('vallaw')
+print('There are '.. copCount ..' cops on duty')
+for i = 1, #cops do
+    print('Cop source: '.. cops[i])
+end
+```
+
+### RSGCore.Functions.GetDutyCount
+
+* Get the count of players on duty for a specific job
+
+```lua
+---@param job string
+---@return number
+function RSGCore.Functions.GetDutyCount(job)
+    local count = 0
+    for _, Player in pairs(RSGCore.Players) do
+        if Player.PlayerData.job.name == job then
+            if Player.PlayerData.job.onduty then
+                count += 1
+            end
+        end
+    end
+    return count
+end
+
+-- Example
+
+local copCount = RSGCore.Functions.GetDutyCount('vallaw')
+if copCount < 2 then
+    print('Not enough cops online!')
+end
+```
+
+### RSGCore.Functions.GetClosestPlayer
+
+* Get the closest player to a source player or coordinates
+
+```lua
+---@param source number
+---@param coords vector
+---@return number, number
+function RSGCore.Functions.GetClosestPlayer(source, coords)
+    -- Returns closestPlayer (server id), closestDistance
+end
+
+-- Example
+
+local closestPlayer, distance = RSGCore.Functions.GetClosestPlayer(source)
+if closestPlayer ~= -1 and distance < 3.0 then
+    print('Player '.. closestPlayer ..' is '.. distance ..' units away')
+end
+```
+
+### RSGCore.Functions.SetPlayerBucket
+
+* Set a player's routing bucket (for instancing)
+
+```lua
+---@param source any
+---@param bucket any
+---@return boolean
+function RSGCore.Functions.SetPlayerBucket(source, bucket)
+    if source and bucket then
+        local plicense = RSGCore.Functions.GetIdentifier(source, 'license')
+        Player(source).state:set('instance', bucket, true)
+        SetPlayerRoutingBucket(source, bucket)
+        RSGCore.Player_Buckets[plicense] = { id = source, bucket = bucket }
+        return true
+    else
+        return false
+    end
+end
+
+-- Example
+
+-- Put player in their own instance (bucket 1)
+RSGCore.Functions.SetPlayerBucket(source, 1)
+```
+
+### RSGCore.Functions.SetEntityBucket
+
+* Set an entity's routing bucket
+
+```lua
+---@param entity number
+---@param bucket number
+---@return boolean
+function RSGCore.Functions.SetEntityBucket(entity, bucket)
+    if entity and bucket then
+        SetEntityRoutingBucket(entity, bucket)
+        RSGCore.Entity_Buckets[entity] = { id = entity, bucket = bucket }
+        return true
+    else
+        return false
+    end
+end
+
+-- Example
+
+local vehicle = GetVehiclePedIsIn(GetPlayerPed(source))
+RSGCore.Functions.SetEntityBucket(vehicle, 1)
+```
+
+### RSGCore.Functions.GetPlayersInBucket
+
+* Get all players in a specific routing bucket
+
+```lua
+---@param bucket number
+---@return table|boolean
+function RSGCore.Functions.GetPlayersInBucket(bucket)
+    local curr_bucket_pool = {}
+    if RSGCore.Player_Buckets and next(RSGCore.Player_Buckets) then
+        for _, v in pairs(RSGCore.Player_Buckets) do
+            if v.bucket == bucket then
+                curr_bucket_pool[#curr_bucket_pool + 1] = v.id
+            end
+        end
+        return curr_bucket_pool
+    else
+        return false
+    end
+end
+
+-- Example
+
+local playersInBucket = RSGCore.Functions.GetPlayersInBucket(1)
+if playersInBucket then
+    for i = 1, #playersInBucket do
+        print('Player in bucket: '.. playersInBucket[i])
+    end
+end
+```
+
+### RSGCore.Functions.SpawnVehicle
+
+* Server-side vehicle spawning
+
+```lua
+---@param source any
+---@param model any
+---@param coords vector
+---@param warp boolean
+---@return number
+function RSGCore.Functions.SpawnVehicle(source, model, coords, warp)
+    -- Spawns vehicle and returns vehicle handle
+end
+
+-- Example
+
+local coords = GetEntityCoords(GetPlayerPed(source))
+local veh = RSGCore.Functions.SpawnVehicle(source, 'CART01', coords, true)
+print('Spawned vehicle: '.. veh)
+```
+
+### RSGCore.Functions.Kick
+
+* Kick a player from the server
+
+```lua
+---@param source any
+---@param reason string
+---@param setKickReason boolean
+---@param deferrals boolean
+function RSGCore.Functions.Kick(source, reason, setKickReason, deferrals)
+    reason = '\n' .. reason .. '\n🔸 Check our Discord for further information: ' .. RSGCore.Config.Server.Discord
+    -- Handles the kick with retries
+end
+
+-- Example
+
+RSGCore.Functions.Kick(source, 'You have been kicked for: Cheating', false, false)
+```
+
+### RSGCore.Functions.IsWhitelisted
+
+* Check if a player is whitelisted
+
+```lua
+---@param source any
+---@return boolean
+function RSGCore.Functions.IsWhitelisted(source)
+    if not RSGCore.Config.Server.Whitelist then return true end
+    if RSGCore.Functions.HasPermission(source, RSGCore.Config.Server.WhitelistPermission) then return true end
+    return false
+end
+
+-- Example
+
+if not RSGCore.Functions.IsWhitelisted(source) then
+    RSGCore.Functions.Kick(source, 'You are not whitelisted', false, false)
+end
+```
+
+### RSGCore.Functions.AddPermission
+
+* Add a permission to a player
+
+```lua
+---@param source any
+---@param permission string
+function RSGCore.Functions.AddPermission(source, permission)
+    if not IsPlayerAceAllowed(source, permission) then
+        ExecuteCommand(('add_principal player.%s rsgcore.%s'):format(source, permission))
+        RSGCore.Commands.Refresh(source)
+    end
+end
+
+-- Example
+
+RSGCore.Functions.AddPermission(source, 'admin')
+```
+
+### RSGCore.Functions.RemovePermission
+
+* Remove a permission from a player
+
+```lua
+---@param source any
+---@param permission string
+function RSGCore.Functions.RemovePermission(source, permission)
+    if permission then
+        if IsPlayerAceAllowed(source, permission) then
+            ExecuteCommand(('remove_principal player.%s rsgcore.%s'):format(source, permission))
+            RSGCore.Commands.Refresh(source)
+        end
+    end
+end
+
+-- Example
+
+RSGCore.Functions.RemovePermission(source, 'admin')
+```
+
+### RSGCore.Functions.HasPermission
+
+* Check if a player has a specific permission
+
+```lua
+---@param source any
+---@param permission string|table
+---@return boolean
+function RSGCore.Functions.HasPermission(source, permission)
+    if type(permission) == 'string' then
+        if IsPlayerAceAllowed(source, permission) then return true end
+    elseif type(permission) == 'table' then
+        for _, permLevel in pairs(permission) do
+            if IsPlayerAceAllowed(source, permLevel) then return true end
+        end
+    end
+    return false
+end
+
+-- Example
+
+if RSGCore.Functions.HasPermission(source, 'admin') then
+    print('Player is an admin')
+end
+
+-- Check multiple permissions
+if RSGCore.Functions.HasPermission(source, {'admin', 'mod'}) then
+    print('Player is admin or mod')
+end
+```
+
+### RSGCore.Functions.GetPermission
+
+* Get all permissions for a player
+
+```lua
+---@param source any
+---@return table
+function RSGCore.Functions.GetPermission(source)
+    local perms = {}
+    for _, v in pairs(RSGCore.Config.Server.Permissions) do
+        if IsPlayerAceAllowed(src, v) then
+            perms[v] = true
+        end
+    end
+    return perms
+end
+
+-- Example
+
+local perms = RSGCore.Functions.GetPermission(source)
+for perm, enabled in pairs(perms) do
+    print(perm .. ': ' .. tostring(enabled))
+end
+```
+
+### RSGCore.Functions.IsPlayerBanned
+
+* Check if a player is banned
+
+```lua
+---@param source any
+---@return boolean, string?
+function RSGCore.Functions.IsPlayerBanned(source)
+    local plicense = RSGCore.Functions.GetIdentifier(source, 'license')
+    local result = MySQL.single.await('SELECT id, reason, expire FROM bans WHERE license = ?', { plicense })
+    if not result then return false end
+    if os.time() < result.expire then
+        -- Returns true and ban message
+        return true, 'Ban message here...'
+    else
+        MySQL.query('DELETE FROM bans WHERE id = ?', { result.id })
+    end
+    return false
+end
+
+-- Example
+
+local isBanned, reason = RSGCore.Functions.IsPlayerBanned(source)
+if isBanned then
+    RSGCore.Functions.Kick(source, reason, false, false)
+end
+```
+
+### RSGCore.Functions.IsLicenseInUse
+
+* Check if a license is currently in use (duplicate check)
+
+```lua
+---@param license any
+---@return boolean
+function RSGCore.Functions.IsLicenseInUse(license)
+    local players = GetPlayers()
+    for _, player in pairs(players) do
+        local playerLicense = RSGCore.Functions.GetIdentifier(player, 'license')
+        if playerLicense == license then return true end
+    end
+    return false
+end
+
+-- Example
+
+if RSGCore.Functions.IsLicenseInUse(license) then
+    print('This license is already connected')
+end
+```

@@ -376,3 +376,404 @@ else
     end
 end
 ```
+
+### RSGCore.Functions.GetPlate
+
+* Get the license plate of a vehicle
+
+```lua
+function RSGCore.Functions.GetPlate(vehicle)
+    if vehicle == 0 then return end
+    return RSGCore.Shared.Trim(GetVehicleNumberPlateText(vehicle))
+end
+
+-- Example
+
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+local plate = RSGCore.Functions.GetPlate(vehicle)
+print('Vehicle plate: ' .. plate)
+```
+
+### RSGCore.Functions.GetVehicleLabel
+
+* Get the display label/name of a vehicle
+
+```lua
+function RSGCore.Functions.GetVehicleLabel(vehicle)
+    if vehicle == nil or vehicle == 0 then return end
+    return GetLabelText(GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)))
+end
+
+-- Example
+
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+local label = RSGCore.Functions.GetVehicleLabel(vehicle)
+print('Vehicle name: ' .. label)
+```
+
+### RSGCore.Functions.GetVehicleProperties
+
+* Get all properties of a vehicle (used for saving vehicle data)
+
+```lua
+function RSGCore.Functions.GetVehicleProperties(vehicle)
+    if DoesEntityExist(vehicle) then
+        -- Returns table with all vehicle properties
+        return {
+            model = GetEntityModel(vehicle),
+            plate = RSGCore.Functions.GetPlate(vehicle),
+            bodyHealth = GetVehicleBodyHealth(vehicle),
+            engineHealth = GetVehicleEngineHealth(vehicle),
+            fuelLevel = GetVehicleFuelLevel(vehicle),
+            dirtLevel = GetVehicleDirtLevel(vehicle),
+            color1 = colorPrimary,
+            color2 = colorSecondary,
+            -- and many more...
+        }
+    end
+end
+
+-- Example
+
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+local props = RSGCore.Functions.GetVehicleProperties(vehicle)
+print(json.encode(props))
+```
+
+### RSGCore.Functions.SetVehicleProperties
+
+* Set all properties of a vehicle (used for loading saved vehicle data)
+
+```lua
+function RSGCore.Functions.SetVehicleProperties(vehicle, props)
+    if DoesEntityExist(vehicle) then
+        -- Sets all vehicle properties from the props table
+    end
+end
+
+-- Example
+
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+local props = {
+    plate = 'NEWPLATE',
+    bodyHealth = 1000.0,
+    engineHealth = 1000.0,
+    color1 = 12,
+    color2 = 0
+}
+RSGCore.Functions.SetVehicleProperties(vehicle, props)
+```
+
+### RSGCore.Functions.LookAtEntity
+
+* Make the player ped look at an entity
+
+```lua
+---@param entity number - The entity to look at
+---@param timeout number - The time in milliseconds before the function times out
+---@param speed number - The speed at which the entity should turn
+---@return number - The time at which the entity was looked at
+function RSGCore.Functions.LookAtEntity(entity, timeout, speed)
+    -- Smoothly turns player to face entity
+end
+
+-- Example
+
+local targetPed = GetClosestPed(coords)
+RSGCore.Functions.LookAtEntity(targetPed, 3000, 2.0)
+```
+
+### RSGCore.Functions.PlayAnim
+
+* Play an animation on the player (deprecated - use ox_lib)
+
+```lua
+---@param animDict string - The name of the animation dictionary
+---@param animName string - The name of the animation within the dictionary
+---@param duration number - The duration of the animation in milliseconds. -1 will play indefinitely
+---@param upperbodyOnly boolean - If true, only affects the upper body
+function RSGCore.Functions.PlayAnim(animDict, animName, upperbodyOnly, duration)
+    local flags = upperbodyOnly and 16 or 0
+    local runTime = duration or -1
+    lib.playAnim(cache.ped, animDict, animName, 8.0, 3.0, runTime, flags, 0.0, false, false, true)
+end
+
+-- Example
+
+RSGCore.Functions.PlayAnim('amb_misc@world_human_smoke@male@male_b@idle_a', 'idle_a', false, -1)
+```
+
+### RSGCore.Functions.IsWearingGloves
+
+* Check if the player is wearing gloves
+
+```lua
+function RSGCore.Functions.IsWearingGloves()
+    local ped = PlayerPedId()
+    local armIndex = GetPedDrawableVariation(ped, 3)
+    local model = GetEntityModel(ped)
+    if model == `mp_m_freemode_01` then
+        if RSGCore.Shared.MaleNoGloves[armIndex] then
+            return false
+        end
+    else
+        if RSGCore.Shared.FemaleNoGloves[armIndex] then
+            return false
+        end
+    end
+    return true
+end
+
+-- Example
+
+if RSGCore.Functions.IsWearingGloves() then
+    print('Player is wearing gloves - no fingerprints left')
+else
+    print('Player is not wearing gloves - fingerprints left behind')
+end
+```
+
+### RSGCore.Functions.GetObjects
+
+* Get all objects in the game world
+
+```lua
+function RSGCore.Functions.GetObjects()
+    return GetGamePool('CObject')
+end
+
+-- Example
+
+local objects = RSGCore.Functions.GetObjects()
+for i = 1, #objects do
+    local objCoords = GetEntityCoords(objects[i])
+    print('Object ' .. i .. ' at: ' .. objCoords)
+end
+```
+
+### RSGCore.Functions.GetClosestPlayer
+
+* Get the closest player to the local player or coordinates
+
+```lua
+function RSGCore.Functions.GetClosestPlayer(coords)
+    -- Returns closestPlayer (id), closestDistance
+end
+
+-- Example
+
+local closestPlayer, distance = RSGCore.Functions.GetClosestPlayer()
+if closestPlayer ~= -1 and distance < 3.0 then
+    print('Closest player is ' .. distance .. ' units away')
+end
+```
+
+### RSGCore.Functions.GetPeds
+
+* Get all peds in the game world with optional ignore list
+
+```lua
+function RSGCore.Functions.GetPeds(ignoreList)
+    local pedPool = GetGamePool('CPed')
+    local peds = {}
+    local ignoreTable = {}
+    ignoreList = ignoreList or {}
+    for i = 1, #ignoreList do
+        ignoreTable[ignoreList[i]] = true
+    end
+    for i = 1, #pedPool do
+        if not ignoreTable[pedPool[i]] then
+            peds[#peds + 1] = pedPool[i]
+        end
+    end
+    return peds
+end
+
+-- Example
+
+local peds = RSGCore.Functions.GetPeds({PlayerPedId()}) -- Get all peds except player
+for i = 1, #peds do
+    print('Ped ' .. i .. ': ' .. peds[i])
+end
+```
+
+### RSGCore.Functions.GetClosestPed
+
+* Get the closest ped to player or coordinates
+
+```lua
+function RSGCore.Functions.GetClosestPed(coords, ignoreList)
+    -- Returns closestPed, closestDistance
+end
+
+-- Example
+
+local closestPed, distance = RSGCore.Functions.GetClosestPed(nil, {PlayerPedId()})
+if closestPed ~= -1 then
+    print('Closest ped is ' .. distance .. ' units away')
+end
+```
+
+### RSGCore.Functions.GetClosestObject
+
+* Get the closest object to player or coordinates
+
+```lua
+function RSGCore.Functions.GetClosestObject(coords)
+    -- Returns closestObject, closestDistance
+end
+
+-- Example
+
+local coords = GetEntityCoords(PlayerPedId())
+local closestObject, distance = RSGCore.Functions.GetClosestObject(coords)
+if closestObject ~= -1 then
+    print('Closest object is ' .. distance .. ' units away')
+end
+```
+
+### RSGCore.Functions.SpawnClear
+
+* Check if an area is clear of vehicles for spawning
+
+```lua
+function RSGCore.Functions.SpawnClear(coords, radius)
+    if coords then
+        coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
+    else
+        coords = GetEntityCoords(PlayerPedId())
+    end
+    local vehicles = GetGamePool('CVehicle')
+    local closeVeh = {}
+    for i = 1, #vehicles, 1 do
+        local vehicleCoords = GetEntityCoords(vehicles[i])
+        local distance = #(vehicleCoords - coords)
+        if distance <= radius then
+            closeVeh[#closeVeh + 1] = vehicles[i]
+        end
+    end
+    if #closeVeh > 0 then return false end
+    return true
+end
+
+-- Example
+
+local coords = GetEntityCoords(PlayerPedId())
+if RSGCore.Functions.SpawnClear(coords, 5.0) then
+    print('Area is clear for spawning')
+else
+    print('Area has vehicles blocking spawn')
+end
+```
+
+### RSGCore.Functions.GetCardinalDirection
+
+* Get the cardinal direction an entity is facing
+
+```lua
+function RSGCore.Functions.GetCardinalDirection(entity)
+    entity = DoesEntityExist(entity) and entity or PlayerPedId()
+    if DoesEntityExist(entity) then
+        local heading = GetEntityHeading(entity)
+        if ((heading >= 0 and heading < 45) or (heading >= 315 and heading < 360)) then
+            return 'North'
+        elseif (heading >= 45 and heading < 135) then
+            return 'West'
+        elseif (heading >= 135 and heading < 225) then
+            return 'South'
+        elseif (heading >= 225 and heading < 315) then
+            return 'East'
+        end
+    else
+        return 'Cardinal Direction Error'
+    end
+end
+
+-- Example
+
+local direction = RSGCore.Functions.GetCardinalDirection(PlayerPedId())
+print('You are facing: ' .. direction)
+```
+
+### RSGCore.Functions.GetStreetNametAtCoords
+
+* Get street names at coordinates
+
+```lua
+function RSGCore.Functions.GetStreetNametAtCoords(coords)
+    local streetname1, streetname2 = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    return { main = GetStreetNameFromHashKey(streetname1), cross = GetStreetNameFromHashKey(streetname2) }
+end
+
+-- Example
+
+local coords = GetEntityCoords(PlayerPedId())
+local streets = RSGCore.Functions.GetStreetNametAtCoords(coords)
+print('Main street: ' .. streets.main)
+print('Cross street: ' .. streets.cross)
+```
+
+### RSGCore.Functions.GetZoneAtCoords
+
+* Get the zone/area name at coordinates
+
+```lua
+function RSGCore.Functions.GetZoneAtCoords(coords)
+    return GetLabelText(GetNameOfZone(coords))
+end
+
+-- Example
+
+local coords = GetEntityCoords(PlayerPedId())
+local zone = RSGCore.Functions.GetZoneAtCoords(coords)
+print('Current zone: ' .. zone)
+```
+
+### RSGCore.Functions.GetCurrentTime
+
+* Get the current in-game time
+
+```lua
+function RSGCore.Functions.GetCurrentTime()
+    local obj = {}
+    obj.min = GetClockMinutes()
+    obj.hour = GetClockHours()
+    if obj.hour <= 12 then
+        obj.ampm = 'AM'
+    elseif obj.hour >= 13 then
+        obj.ampm = 'PM'
+        obj.formattedHour = obj.hour - 12
+    end
+    if obj.min <= 9 then
+        obj.formattedMin = '0' .. obj.min
+    end
+    return obj
+end
+
+-- Example
+
+local time = RSGCore.Functions.GetCurrentTime()
+print('Time: ' .. (time.formattedHour or time.hour) .. ':' .. (time.formattedMin or time.min) .. ' ' .. time.ampm)
+```
+
+### RSGCore.Functions.GetGroundZCoord
+
+* Get the ground Z coordinate at given coordinates
+
+```lua
+function RSGCore.Functions.GetGroundZCoord(coords)
+    if not coords then return end
+    local retval, groundZ = GetGroundZFor_3dCoord(coords.x, coords.y, coords.z, 0)
+    if retval then
+        return vector3(coords.x, coords.y, groundZ)
+    else
+        return coords
+    end
+end
+
+-- Example
+
+local coords = GetEntityCoords(PlayerPedId())
+local groundCoords = RSGCore.Functions.GetGroundZCoord(coords)
+print('Ground Z: ' .. groundCoords.z)
+```

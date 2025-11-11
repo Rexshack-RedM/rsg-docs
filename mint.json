@@ -62,9 +62,11 @@
     {
       "group": "RSG Core",
       "pages": [
+        "essentials/configuration",
         "essentials/shared",
         "essentials/sharedexports",
         "essentials/playerdata",
+        "essentials/callbacks",
         "essentials/prompts",
         "essentials/commands"
       ]

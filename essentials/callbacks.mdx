@@ -1,0 +1,538 @@
+---
+title: "🔄 Callbacks Guide"
+description: "Learn how to use RSG Core's callback system for client-server communication"
+---
+
+## Introduction
+
+Callbacks in RSG Core provide a way to request data from the server and wait for a response, or vice versa. They're essential for synchronous communication between client and server scripts.
+
+<Note>
+Callbacks are perfect for situations where you need to wait for data before continuing execution, like checking if a player has an item, getting database information, or validating actions.
+</Note>
+
+---
+
+## Server Callbacks
+
+Server callbacks allow you to request data from the server and wait for the response on the client.
+
+### Creating a Server Callback
+
+Use `RSGCore.Functions.CreateCallback` on the **server** to create a callback:
+
+```lua
+-- SERVER SIDE (server/main.lua or your resource's server file)
+
+RSGCore.Functions.CreateCallback('rsg-example:server:getData', function(source, cb, arg1, arg2)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if not Player then
+        cb(nil)
+        return
+    end
+
+    -- Do your server-side logic
+    local data = {
+        name = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+        job = Player.PlayerData.job.label,
+        money = Player.PlayerData.money.cash,
+        customArg1 = arg1,
+        customArg2 = arg2
+    }
+
+    -- Send data back to client
+    cb(data)
+end)
+```
+
+<Info>
+**Parameters**:
+- `source`: The player who triggered the callback
+- `cb`: The callback function to send data back
+- `...`: Any additional arguments passed from the client
+</Info>
+
+### Triggering a Server Callback
+
+Use `RSGCore.Functions.TriggerCallback` on the **client** to call the callback:
+
+```lua
+-- CLIENT SIDE (client/main.lua or your resource's client file)
+
+RSGCore.Functions.TriggerCallback('rsg-example:server:getData', function(data)
+    if data then
+        print('Player Name: ' .. data.name)
+        print('Job: ' .. data.job)
+        print('Cash: $' .. data.money)
+    else
+        print('No data received')
+    end
+end, 'argument1', 'argument2')
+```
+
+---
+
+## Client Callbacks
+
+Client callbacks allow the server to request data from a specific client and wait for the response.
+
+### Creating a Client Callback
+
+Use `RSGCore.Functions.CreateClientCallback` on the **client** to create a callback:
+
+```lua
+-- CLIENT SIDE
+
+RSGCore.Functions.CreateClientCallback('rsg-example:client:getVehicleData', function(cb)
+    local ped = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(ped, false)
+
+    if vehicle ~= 0 then
+        local data = {
+            model = GetEntityModel(vehicle),
+            plate = GetVehicleNumberPlateText(vehicle),
+            health = GetVehicleEngineHealth(vehicle),
+            coords = GetEntityCoords(vehicle)
+        }
+        cb(data)
+    else
+        cb(nil) -- Player not in a vehicle
+    end
+end)
+```
+
+### Triggering a Client Callback
+
+Use `RSGCore.Functions.TriggerClientCallback` on the **server** to call the callback:
+
+```lua
+-- SERVER SIDE
+
+RSGCore.Functions.TriggerClientCallback('rsg-example:client:getVehicleData', source, function(data)
+    if data then
+        print('Vehicle Model: ' .. data.model)
+        print('Plate: ' .. data.plate)
+        print('Engine Health: ' .. data.health)
+    else
+        print('Player is not in a vehicle')
+    end
+end)
+```
+
+---
+
+## Practical Examples
+
+### Example 1: Checking if Player Has Item
+
+**Server Callback**:
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('rsg-shop:server:hasEnoughMoney', function(source, cb, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if not Player then
+        cb(false)
+        return
+    end
+
+    if Player.Functions.GetMoney('cash') >= amount then
+        cb(true)
+    else
+        cb(false)
+    end
+end)
+```
+
+**Client Usage**:
+```lua
+-- CLIENT
+local price = 50
+
+RSGCore.Functions.TriggerCallback('rsg-shop:server:hasEnoughMoney', function(hasEnough)
+    if hasEnough then
+        print('You have enough money!')
+        -- Proceed with purchase
+    else
+        print('You don\'t have enough money!')
+    end
+end, price)
+```
+
+### Example 2: Getting Player's Horses
+
+**Server Callback with Database**:
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('rsg-horses:server:getOwnedHorses', function(source, cb)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if not Player then
+        cb({})
+        return
+    end
+
+    local result = MySQL.query.await('SELECT * FROM player_horses WHERE citizenid = ?', {
+        Player.PlayerData.citizenid
+    })
+
+    if result and result[1] then
+        cb(result)
+    else
+        cb({})
+    end
+end)
+```
+
+**Client Usage**:
+```lua
+-- CLIENT
+RSGCore.Functions.TriggerCallback('rsg-horses:server:getOwnedHorses', function(horses)
+    if #horses > 0 then
+        print('You own ' .. #horses .. ' horses:')
+        for i = 1, #horses do
+            print('  - ' .. horses[i].name)
+        end
+    else
+        print('You don\'t own any horses')
+    end
+end)
+```
+
+### Example 3: Purchasing Item
+
+**Server Callback**:
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('rsg-shop:server:purchaseItem', function(source, cb, itemName, amount, price)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if not Player then
+        cb({ success = false, message = 'Player not found' })
+        return
+    end
+
+    local totalPrice = price * amount
+
+    -- Check if player has enough money
+    if Player.Functions.GetMoney('cash') < totalPrice then
+        cb({ success = false, message = 'Not enough money' })
+        return
+    end
+
+    -- Check if player has inventory space
+    if not exports['rsg-inventory']:CanAddItem(src, itemName, amount) then
+        cb({ success = false, message = 'Not enough inventory space' })
+        return
+    end
+
+    -- Remove money
+    if not Player.Functions.RemoveMoney('cash', totalPrice, 'shop-purchase') then
+        cb({ success = false, message = 'Failed to remove money' })
+        return
+    end
+
+    -- Add item
+    if exports['rsg-inventory']:AddItem(src, itemName, amount, nil, nil, 'shop-purchase') then
+        cb({ success = true, message = 'Purchase successful' })
+    else
+        -- Refund money if item add fails
+        Player.Functions.AddMoney('cash', totalPrice, 'shop-refund')
+        cb({ success = false, message = 'Failed to add item' })
+    end
+end)
+```
+
+**Client Usage**:
+```lua
+-- CLIENT
+local itemName = 'bread'
+local amount = 3
+local pricePerUnit = 5
+
+RSGCore.Functions.TriggerCallback('rsg-shop:server:purchaseItem', function(result)
+    if result.success then
+        lib.notify({ title = 'Shop', description = result.message, type = 'success' })
+    else
+        lib.notify({ title = 'Shop', description = result.message, type = 'error' })
+    end
+end, itemName, amount, pricePerUnit)
+```
+
+### Example 4: Client Callback for Coordinates
+
+**Client Callback**:
+```lua
+-- CLIENT
+RSGCore.Functions.CreateClientCallback('rsg-admin:client:getPlayerCoords', function(cb)
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    local heading = GetEntityHeading(ped)
+
+    cb({
+        x = coords.x,
+        y = coords.y,
+        z = coords.z,
+        heading = heading
+    })
+end)
+```
+
+**Server Usage**:
+```lua
+-- SERVER
+RegisterCommand('getcoords', function(source, args)
+    local src = source
+
+    if not RSGCore.Functions.HasPermission(src, 'admin') then return end
+
+    RSGCore.Functions.TriggerClientCallback('rsg-admin:client:getPlayerCoords', src, function(coords)
+        if coords then
+            print(('Player coords: x=%.2f, y=%.2f, z=%.2f, heading=%.2f'):format(
+                coords.x, coords.y, coords.z, coords.heading
+            ))
+        end
+    end)
+end)
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Use Descriptive Names**: Name your callbacks clearly to indicate what they do
+- Good: `'rsg-shop:server:purchaseItem'`
+- Bad: `'shop:buy'`
+</Tip>
+
+<Warning>
+**Always Validate Data**: Never trust client-sent data without validation
+```lua
+-- BAD
+RSGCore.Functions.CreateCallback('example', function(source, cb, amount)
+    Player.Functions.AddMoney('cash', amount) -- NO VALIDATION!
+end)
+
+-- GOOD
+RSGCore.Functions.CreateCallback('example', function(source, cb, amount)
+    if type(amount) ~= 'number' or amount <= 0 or amount > 1000 then
+        cb(false)
+        return
+    end
+    Player.Functions.AddMoney('cash', amount)
+    cb(true)
+end)
+```
+</Warning>
+
+<Check>
+**Always Provide Fallbacks**: Handle cases where data might be nil
+```lua
+RSGCore.Functions.TriggerCallback('example:getData', function(data)
+    if not data then
+        print('Failed to get data')
+        return
+    end
+    -- Use data
+end)
+```
+</Check>
+
+### Performance Tips
+
+1. **Don't spam callbacks**: Avoid calling callbacks in loops or every frame
+2. **Cache results**: If data doesn't change often, cache it instead of calling repeatedly
+3. **Use events for one-way communication**: If you don't need a response, use events instead
+
+```lua
+-- BAD: Callback every second
+CreateThread(function()
+    while true do
+        Wait(1000)
+        RSGCore.Functions.TriggerCallback('getData', function(data)
+            -- Do something
+        end)
+    end
+end)
+
+-- GOOD: Event for one-way or cache for repeated use
+local cachedData = nil
+
+RegisterNetEvent('updateData', function(data)
+    cachedData = data
+end)
+
+-- Request once and cache
+RSGCore.Functions.TriggerCallback('getData', function(data)
+    cachedData = data
+end)
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Permission Check
+
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('checkPermission', function(source, cb, permission)
+    cb(RSGCore.Functions.HasPermission(source, permission))
+end)
+
+-- CLIENT
+RSGCore.Functions.TriggerCallback('checkPermission', function(hasPermission)
+    if hasPermission then
+        -- Show admin menu
+    end
+end, 'admin')
+```
+
+### Pattern 2: Database Fetch
+
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('getPlayerStats', function(source, cb)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then cb(nil) return end
+
+    local stats = MySQL.query.await('SELECT * FROM player_stats WHERE citizenid = ?', {
+        Player.PlayerData.citizenid
+    })
+
+    cb(stats[1] or {})
+end)
+```
+
+### Pattern 3: Multi-Step Validation
+
+```lua
+-- SERVER
+RSGCore.Functions.CreateCallback('canCraftItem', function(source, cb, itemName, amount)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then cb({ canCraft = false, reason = 'Invalid player' }) return end
+
+    -- Check recipe exists
+    local recipe = Config.Recipes[itemName]
+    if not recipe then
+        cb({ canCraft = false, reason = 'Unknown recipe' })
+        return
+    end
+
+    -- Check player has required items
+    for _, ingredient in pairs(recipe.required) do
+        if not Player.Functions.HasItem(ingredient.item, ingredient.amount * amount) then
+            cb({ canCraft = false, reason = 'Missing ' .. ingredient.item })
+            return
+        end
+    end
+
+    -- Check inventory space
+    if not exports['rsg-inventory']:CanAddItem(source, itemName, amount) then
+        cb({ canCraft = false, reason = 'Inventory full' })
+        return
+    end
+
+    cb({ canCraft = true })
+end)
+```
+
+---
+
+## Troubleshooting
+
+### Callback Not Responding
+
+<AccordionGroup>
+  <Accordion title="Check callback is registered" defaultOpen={false}>
+    Ensure `CreateCallback` is called before you try to trigger it:
+
+    ```lua
+    -- Make sure this runs when resource starts
+    RSGCore.Functions.CreateCallback('example', function(source, cb)
+        cb('data')
+    end)
+    ```
+  </Accordion>
+
+  <Accordion title="Check for errors" defaultOpen={false}>
+    Look in your server/client console for Lua errors that might prevent the callback from executing
+  </Accordion>
+
+  <Accordion title="Verify resource is started" defaultOpen={false}>
+    Make sure the resource containing the callback is actually started:
+
+    ```
+    ensure your-resource
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Callback Returns Nil
+
+Common causes:
+- Player object is nil (player left server)
+- Database query returned no results
+- Logic error in callback function
+
+Always handle nil returns:
+
+```lua
+RSGCore.Functions.TriggerCallback('getData', function(data)
+    if not data then
+        print('Callback returned nil')
+        return
+    end
+    -- Process data
+end)
+```
+
+---
+
+## Advanced: Async/Await Pattern
+
+For cleaner code, you can wrap callbacks in promises:
+
+```lua
+-- CLIENT
+function GetServerDataAsync(arg1, arg2)
+    local p = promise.new()
+
+    RSGCore.Functions.TriggerCallback('example:getData', function(data)
+        p:resolve(data)
+    end, arg1, arg2)
+
+    return Citizen.Await(p)
+end
+
+-- Usage
+CreateThread(function()
+    local data = GetServerDataAsync('test', 123)
+    if data then
+        print('Got data: ' .. json.encode(data))
+    end
+end)
+```
+
+---
+
+## Summary
+
+- **Server Callbacks**: Client requests data from server
+  - `CreateCallback` on server
+  - `TriggerCallback` on client
+
+- **Client Callbacks**: Server requests data from client
+  - `CreateClientCallback` on client
+  - `TriggerClientCallback` on server
+
+- **Always validate** data on the server
+- **Always handle** nil responses
+- **Use events** for one-way communication
+- **Cache data** when possible to avoid repeated callbacks
