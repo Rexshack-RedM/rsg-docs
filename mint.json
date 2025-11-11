@@ -99,17 +99,17 @@
       ]
     },
     {
-      "group": "Effective Lua",
-      "pages": [
-        "lua-reference/luabegining"
-      ]
-    },
-    {
       "group": "Inventory System",
       "pages": [
         "inventory/overview",
         "inventory/functions",
         "inventory/weapons"
+      ]
+    },
+    {
+      "group": "Effective Lua",
+      "pages": [
+        "lua-reference/luabegining"
       ]
     }
   ],
