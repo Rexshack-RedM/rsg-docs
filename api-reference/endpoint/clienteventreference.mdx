@@ -1,171 +1,788 @@
 ---
-title: "🎮 Client Event Reference"
-description: "Learn about and how to use common core client events!"
+title: "🎮 Client Events"
+description: "Complete guide to RSG Core client-side events and event handlers"
 ---
+
+## Introduction
+
+Client events are essential for handling player-specific actions, UI updates, and local game state changes in RSG Framework. They run on each player's machine and allow for responsive, individualized gameplay experiences.
+
+<Check>
+Client events run locally on each player's machine and can be triggered by the server using `TriggerClientEvent` or by other client-side code using `TriggerEvent`.
+</Check>
+
+---
+
+## How It Works
+
+### Event Flow
+
+```
+Server Script → TriggerClientEvent('eventName', source, args) → Client Listens → Client Processes
+```
+
+Or locally:
+
+```
+Client Script → TriggerEvent('eventName', args) → Same Client Listens → Client Processes
+```
+
+### Registering Events
+
+Client events are registered using `RegisterNetEvent`:
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('eventName', function(arg1, arg2)
+    -- Process event locally
+    print('Received:', arg1, arg2)
+end)
+```
+
+<Info>
+Client events are **not synchronized** between players. Each player's client runs independently!
+</Info>
+
+---
+
+## Core Lifecycle Events
 
 ### RSGCore:Client:OnPlayerLoaded
 
-* Handles the player loading in after character selection
-
-<Check>
-  This event can be used as an event handler to trigger code because it signifies the player has successfully loaded into the server!
-</Check>
+Triggered when a player successfully loads into the server after character selection. This is the most important event for initializing player-specific client-side features.
 
 ```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
 RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
-    print('Im a client and i just loaded into your server!')
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+
+    print('Player loaded:', PlayerData.charinfo.firstname)
+
+    -- Initialize player-specific features
+    -- Set up HUD
+    -- Load player blips
+    -- Start player threads
+end)
+```
+
+**Use Cases:**
+- Initialize HUD elements
+- Start player status monitors
+- Load player-specific blips/markers
+- Set up keybinds
+- Initialize job-specific UI
+- Restore player settings
+
+**Complete Example:**
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+
+    -- Start HUD
+    TriggerEvent('hud:client:LoadHud', PlayerData)
+
+    -- Start status update thread
+    CreateThread(function()
+        while true do
+            -- Update hunger/thirst display
+            Wait(30000) -- Every 30 seconds
+        end
+    end)
+
+    -- Show welcome message
+    lib.notify({
+        title = 'Welcome Back!',
+        description = 'Hello, ' .. PlayerData.charinfo.firstname,
+        type = 'success',
+        duration = 5000
+    })
+
+    -- Job-specific initialization
+    if PlayerData.job.name == 'police' then
+        TriggerEvent('police:client:initPoliceJob')
+    end
 end)
 ```
 
 ### RSGCore:Client:OnPlayerUnload
 
-* Handles the player login out to character selection
-
-<Check>
-  This event can be used as an event handler to trigger code because it signifies the player has successfully unloaded or logged out of the server!
-</Check>
+Triggered when a player logs out or returns to character selection. Use this to clean up client-side data and stop threads.
 
 ```lua
+-- CLIENT SIDE
 RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function()
-    print('Im a client and i just logged out of your server!')
+    print('Player unloading...')
+
+    -- Clean up HUD
+    TriggerEvent('hud:client:UnloadHud')
+
+    -- Stop custom threads
+    -- Clear temporary blips
+    -- Reset UI elements
+    -- Save client settings
 end)
 ```
 
-### RSGCore:Client:PvpHasToggled
+**Use Cases:**
+- Stop running threads
+- Clear temporary blips/markers
+- Reset UI to default state
+- Save client-side settings
+- Clean up job-specific features
 
-<Info>
-  On player load this event checks is triggered after checking the rsg-core config to see if PVP should be enabled or disabled
-</Info>
+**Complete Example:**
+```lua
+-- CLIENT SIDE
+local activeThreads = {}
+local playerBlips = {}
+
+RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function()
+    -- Stop all active threads
+    for _, thread in pairs(activeThreads) do
+        thread.active = false
+    end
+    activeThreads = {}
+
+    -- Remove all player blips
+    for _, blip in pairs(playerBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
+    playerBlips = {}
+
+    -- Clear UI
+    SendNUIMessage({
+        action = 'hideAll'
+    })
+
+    print('Player unloaded and cleaned up')
+end)
+```
+
+---
+
+## Player Data Events
+
+### RSGCore:Player:SetPlayerData
+
+Triggered whenever player data changes (job update, money change, metadata update, etc.). Essential for keeping UI synchronized with server data.
 
 ```lua
-RegisterNetEvent('RSGCore:Client:PvpHasToggled', function(pvp_state)
-    print('PVP mode has been set to '..pvp_state..'!')
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(newData)
+    -- Update local PlayerData
+    RSGCore.PlayerData = newData
+
+    -- Update HUD with new data
+    TriggerEvent('hud:client:UpdatePlayerData', newData)
+
+    print('Player data updated')
 end)
 ```
+
+**Use Cases:**
+- Update HUD when money changes
+- Refresh job display when job updates
+- Update status bars when metadata changes
+- Sync inventory UI
+- Update player name displays
+
+**Complete Example with Specific Updates:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local lastMoney = {}
+local lastJob = nil
+
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(newData)
+    local oldData = RSGCore.PlayerData
+    RSGCore.PlayerData = newData
+
+    -- Check for money changes
+    if oldData.money then
+        for moneyType, amount in pairs(newData.money) do
+            if lastMoney[moneyType] and lastMoney[moneyType] ~= amount then
+                local difference = amount - lastMoney[moneyType]
+                if difference > 0 then
+                    lib.notify({
+                        description = '+$' .. difference .. ' ' .. moneyType,
+                        type = 'success'
+                    })
+                end
+            end
+            lastMoney[moneyType] = amount
+        end
+    end
+
+    -- Check for job changes
+    if newData.job and newData.job.name ~= lastJob then
+        lib.notify({
+            title = 'Job Updated',
+            description = 'You are now: ' .. newData.job.label,
+            type = 'info'
+        })
+        lastJob = newData.job.name
+
+        -- Trigger job-specific initialization
+        TriggerEvent('job:client:onJobChange', newData.job)
+    end
+
+    -- Update HUD
+    SendNUIMessage({
+        action = 'updatePlayerData',
+        data = newData
+    })
+end)
+```
+
+---
+
+## Job & Duty Events
+
+### RSGCore:Client:OnJobUpdate
+
+Triggered when a player's job changes.
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:OnJobUpdate', function(job)
+    print('Job updated to:', job.label)
+    print('Grade:', job.grade.name)
+    print('On Duty:', job.onduty)
+
+    -- Update job-specific UI
+    SendNUIMessage({
+        action = 'updateJob',
+        job = job
+    })
+
+    -- Job-specific logic
+    if job.name == 'police' then
+        TriggerEvent('police:client:setupPoliceJob')
+    elseif job.name == 'doctor' then
+        TriggerEvent('doctor:client:setupDoctorJob')
+    end
+end)
+```
+
+**Complete Example:**
+```lua
+-- CLIENT SIDE
+local currentJobBlips = {}
+
+RegisterNetEvent('RSGCore:Client:OnJobUpdate', function(job)
+    -- Clean up old job blips
+    for _, blip in pairs(currentJobBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
+    currentJobBlips = {}
+
+    -- Add new job blips
+    if job.name == 'police' then
+        -- Add police station blip
+        local blip = Citizen.InvokeNative(0x554D9D53F696D002, 1664425300, Config.PoliceStation.x, Config.PoliceStation.y, Config.PoliceStation.z)
+        SetBlipSprite(blip, -1282792512, 1)
+        currentJobBlips[#currentJobBlips + 1] = blip
+    end
+
+    lib.notify({
+        title = 'Job Changed',
+        description = 'You are now a ' .. job.label,
+        type = 'info'
+    })
+end)
+```
+
+### RSGCore:Client:SetDuty
+
+Triggered when a player's duty status changes.
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:SetDuty', function(onDuty)
+    print('Duty status:', onDuty and 'ON DUTY' or 'OFF DUTY')
+
+    -- Update duty indicator
+    SendNUIMessage({
+        action = 'setDuty',
+        onDuty = onDuty
+    })
+
+    -- Show/hide duty-specific features
+    if onDuty then
+        -- Enable job features
+    else
+        -- Disable job features
+    end
+end)
+```
+
+---
+
+## Vehicle Events
 
 ### RSGCore:Command:SpawnVehicle
 
-
-
-| **Arguments** | **Type** | **Required** | **Default** |
-| ------------- | -------- | ------------ | ----------- |
-| cart model    | string   | yes          | none        |
-
-<Info>
-  Client example
-</Info>
+Spawns a vehicle near the player.
 
 ```lua
--- /spawnveh cart
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Command:SpawnVehicle', function(model)
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+    local heading = GetEntityHeading(ped)
 
-RegisterCommand('spawnveh', function(_, args)
-    local vehicle = RSGCore.Shared.Trim(args[1])
-    TriggerEvent('RSGCore:Command:SpawnVehicle', vehicle)
+    -- Load vehicle model
+    local modelHash = GetHashKey(model)
+    lib.requestModel(modelHash)
+
+    -- Spawn vehicle
+    local vehicle = CreateVehicle(modelHash, coords.x + 2, coords.y, coords.z, heading, true, false)
+
+    -- Set player in vehicle
+    SetPedIntoVehicle(ped, vehicle, -1)
+
+    -- Clean up
+    SetModelAsNoLongerNeeded(modelHash)
+
+    lib.notify({
+        description = 'Vehicle spawned: ' .. model,
+        type = 'success'
+    })
 end)
 ```
 
-<Info>
-  Server example
-</Info>
-
+**Trigger from Server:**
 ```lua
--- /spawnveh wagon
+-- SERVER SIDE
+RSGCore.Commands.Add('spawnveh', 'Spawn vehicle', {{name = 'model', help = 'Vehicle model'}}, true, function(source, args)
+    TriggerClientEvent('RSGCore:Command:SpawnVehicle', source, args[1])
+end, 'admin')
+```
 
-RegisterCommand('spawnveh', function(source, args)
-    local vehicle = RSGCore.Shared.Trim(args[1])
-    TriggerClientEvent('RSGCore:Command:SpawnVehicle', source, vehicle)
+**Trigger from Client:**
+```lua
+-- CLIENT SIDE
+RegisterCommand('spawnveh', function(_, args)
+    local model = args[1]
+    if not model then
+        lib.notify({description = 'Usage: /spawnveh [model]', type = 'error'})
+        return
+    end
+
+    TriggerEvent('RSGCore:Command:SpawnVehicle', model)
 end)
 ```
 
 ### RSGCore:Command:DeleteVehicle
 
-
-
-| **Arguments** | **Type** | **Required** | **Default** |
-| ------------- | -------- | ------------ | ----------- |
-| none          | none     | no           | none        |
-
-<Info>
-  Client example
-</Info>
+Deletes the vehicle the player is in or near.
 
 ```lua
-RegisterCommand('deleteveh', function(_, args)
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Command:DeleteVehicle', function()
+    local ped = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(ped, false)
+
+    -- If not in vehicle, get closest vehicle
+    if vehicle == 0 then
+        local coords = GetEntityCoords(ped)
+        vehicle = GetClosestVehicle(coords.x, coords.y, coords.z, 5.0, 0, 70)
+    end
+
+    if vehicle ~= 0 then
+        DeleteEntity(vehicle)
+        lib.notify({
+            description = 'Vehicle deleted',
+            type = 'success'
+        })
+    else
+        lib.notify({
+            description = 'No vehicle nearby',
+            type = 'error'
+        })
+    end
+end)
+```
+
+**Trigger from Command:**
+```lua
+-- CLIENT SIDE
+RegisterCommand('dv', function()
     TriggerEvent('RSGCore:Command:DeleteVehicle')
 end)
 ```
 
-<Info>
-  Server example
-</Info>
+---
+
+## Item & Inventory Events
+
+### RSGCore:Client:UseItem
+
+Triggered when a player uses an item. Often called by the server after validation.
 
 ```lua
-RegisterCommand('deleteveh', function(source, args)
-    TriggerClientEvent('RSGCore:Command:DeleteVehicle', source)
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:UseItem', function(item)
+    print('Using item:', item.name)
+    print('Amount:', item.amount)
+    print('Slot:', item.slot)
+
+    -- Play animation
+    local ped = PlayerPedId()
+    lib.requestAnimDict('mech_inventory@eating')
+    TaskPlayAnim(ped, 'mech_inventory@eating', 'eat', 8.0, 8.0, 3000, 0, 0, true, true, true)
+
+    -- Wait for animation
+    Wait(3000)
+
+    -- Clean up
+    ClearPedTasks(ped)
+    RemoveAnimDict('mech_inventory@eating')
 end)
 ```
 
-## RSGCore:Player:SetPlayerData
-
-<Check>
-  This event can be used as an event handler to trigger code because it indicates that the players data has changed!
-</Check>
-
+**Complete Example with Progress Bar:**
 ```lua
-RegisterNetEvent('RSGCore:Player:SetPlayerData', function(val)
-    PlayerData = val
-    print(RSGCore.Debug(PlayerData))
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:UseItem', function(item)
+    if item.name == 'bread' then
+        -- Show progress bar
+        if lib.progressBar({
+            duration = 3000,
+            label = 'Eating bread...',
+            useWhileDead = false,
+            canCancel = true,
+            disable = {
+                move = false,
+                car = true,
+                combat = true
+            },
+            anim = {
+                dict = 'mech_inventory@eating@multi_bite@wedge_sandwich',
+                clip = 'eat_wedge_sandwich'
+            }
+        }) then
+            -- Notify server item was consumed
+            TriggerServerEvent('consumables:server:eatFood', item.slot)
+
+            lib.notify({
+                description = 'You ate bread',
+                type = 'success'
+            })
+        else
+            lib.notify({
+                description = 'Cancelled',
+                type = 'error'
+            })
+        end
+    end
 end)
 ```
 
-## RSGCore:Client:UseItem
+---
 
+## System Events
 
+### RSGCore:Client:PvpHasToggled
 
-| **Arguments** | **Type** | **Required** | **Default** |
-| ------------- | -------- | ------------ | ----------- |
-| item name     | string   | yes          | none        |
-
-<Info>
-  Client example (must have the item in your inventory)
-</Info>
+Triggered when PVP mode is enabled or disabled for the player.
 
 ```lua
--- /useitem bread 1
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:PvpHasToggled', function(pvpEnabled)
+    print('PVP mode:', pvpEnabled and 'ENABLED' or 'DISABLED')
 
-RegisterCommand('useitem', function(_, args)
-    local item = {
-        name = args[1],
-        amount = tonumber(args[2])
-    }
-    TriggerEvent('RSGCore:Client:UseItem', item)
+    -- Update network mode
+    SetCanAttackFriendly(PlayerPedId(), true, pvpEnabled)
+    NetworkSetFriendlyFireOption(pvpEnabled)
+
+    -- Notify player
+    lib.notify({
+        description = pvpEnabled and 'PVP Enabled' or 'PVP Disabled',
+        type = 'info'
+    })
+
+    -- Update UI
+    SendNUIMessage({
+        action = 'setPvp',
+        enabled = pvpEnabled
+    })
 end)
 ```
 
-<Info>
-  Server example (must have the item in your inventory)
-</Info>
+### RSGCore:Client:UpdateObject
+
+Used to refresh the RSGCore object when using shared exports. Important for hot-reloading.
 
 ```lua
--- /useitem bread 1
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
 
-RegisterCommand('useitem', function(source, args)
-    local item = {
-        name = args[1],
-        amount = tonumber(args[2])
-    }
-    TriggerClientEvent('RSGCore:Client:UseItem', source, item)
-end)
-```
-
-## RSGCore:Client:UpdateObject
-
-<Check>
-  This event must be used as a handler when using Shared Exports because it refreshes the core object in your resource
-</Check>
-
-```lua
-RegisterNetEvent('RGCore:Client:UpdateObject', function()
+RegisterNetEvent('RSGCore:Client:UpdateObject', function()
     RSGCore = exports['rsg-core']:GetCoreObject()
+    print('Core object updated')
 end)
 ```
+
+<Info>
+This event is automatically triggered when rsg-core restarts. Include it in your resources to support hot-reloading!
+</Info>
+
+---
+
+## Notification Events
+
+### Common Notification Pattern
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('myresource:client:notify', function(message, type)
+    lib.notify({
+        description = message,
+        type = type or 'info'
+    })
+end)
+
+-- Trigger from server
+-- SERVER SIDE
+TriggerClientEvent('myresource:client:notify', source, 'Action completed!', 'success')
+```
+
+---
+
+## Best Practices
+
+### 1. Always Get Fresh PlayerData
+
+```lua
+-- GOOD
+RegisterNetEvent('myEvent', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+    -- Use fresh data
+end)
+
+-- BAD (can be outdated)
+local PlayerData = RSGCore.Functions.GetPlayerData()
+RegisterNetEvent('myEvent', function()
+    -- Using old PlayerData
+end)
+```
+
+### 2. Clean Up on Player Unload
+
+```lua
+-- GOOD
+local myBlips = {}
+local myThreads = {}
+
+RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function()
+    -- Clean up blips
+    for _, blip in pairs(myBlips) do
+        if DoesBlipExist(blip) then
+            RemoveBlip(blip)
+        end
+    end
+
+    -- Stop threads
+    for _, thread in pairs(myThreads) do
+        thread.active = false
+    end
+end)
+```
+
+### 3. Use Progress Bars for Actions
+
+```lua
+-- GOOD
+if lib.progressBar({
+    duration = 5000,
+    label = 'Mining...',
+    useWhileDead = false,
+    canCancel = true,
+    disable = {
+        move = true,
+        car = true,
+        combat = true
+    }
+}) then
+    -- Action completed
+    TriggerServerEvent('mining:server:collectOre')
+else
+    -- Action cancelled
+end
+```
+
+### 4. Validate Before Processing
+
+```lua
+-- GOOD
+RegisterNetEvent('myEvent', function(data)
+    if not data or type(data) ~= 'table' then
+        print('Invalid data received')
+        return
+    end
+
+    -- Process data
+end)
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Animation with Callback
+
+```lua
+RegisterNetEvent('animations:client:playAnim', function(dict, anim, duration)
+    local ped = PlayerPedId()
+
+    lib.requestAnimDict(dict)
+    TaskPlayAnim(ped, dict, anim, 8.0, 8.0, duration or -1, 0, 0, true, true, true)
+
+    if duration and duration > 0 then
+        Wait(duration)
+        ClearPedTasks(ped)
+    end
+
+    RemoveAnimDict(dict)
+end)
+```
+
+### Pattern 2: Proximity Activation
+
+```lua
+CreateThread(function()
+    local shopCoords = vector3(2633.0, -1220.0, 53.0)
+    local inRange = false
+
+    while true do
+        local ped = PlayerPedId()
+        local coords = GetEntityCoords(ped)
+        local distance = #(coords - shopCoords)
+
+        if distance < 2.0 and not inRange then
+            inRange = true
+            lib.showTextUI('[E] Open Shop')
+        elseif distance >= 2.0 and inRange then
+            inRange = false
+            lib.hideTextUI()
+        end
+
+        if inRange and IsControlJustPressed(0, RSGCore.Shared.Keybinds['E']) then
+            TriggerServerEvent('shop:server:openShop')
+        end
+
+        Wait(inRange and 0 or 1000)
+    end
+end)
+```
+
+### Pattern 3: Status Monitor
+
+```lua
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    CreateThread(function()
+        while true do
+            local PlayerData = RSGCore.Functions.GetPlayerData()
+
+            if PlayerData.metadata then
+                -- Update HUD
+                SendNUIMessage({
+                    action = 'updateStatus',
+                    hunger = PlayerData.metadata.hunger,
+                    thirst = PlayerData.metadata.thirst
+                })
+            end
+
+            Wait(5000) -- Update every 5 seconds
+        end
+    end)
+end)
+```
+
+---
+
+## Troubleshooting
+
+### Event Not Triggering
+
+<AccordionGroup>
+  <Accordion title="Check if player is loaded" defaultOpen={false}>
+    Some events only work after `RSGCore:Client:OnPlayerLoaded`
+  </Accordion>
+
+  <Accordion title="Verify event name" defaultOpen={false}>
+    Event names are case-sensitive and must match exactly
+  </Accordion>
+
+  <Accordion title="Check console for errors" defaultOpen={false}>
+    Press F8 to open client console and look for error messages
+  </Accordion>
+</AccordionGroup>
+
+### PlayerData is Nil
+
+```lua
+-- Wait for player to load
+RegisterNetEvent('myEvent', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+
+    if not PlayerData or not PlayerData.citizenid then
+        print('Player not loaded yet')
+        return
+    end
+
+    -- Safe to use PlayerData
+end)
+```
+
+### UI Not Updating
+
+```lua
+-- Make sure to listen to PlayerData updates
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(newData)
+    -- Update UI
+    SendNUIMessage({
+        action = 'update',
+        data = newData
+    })
+end)
+```
+
+---
+
+## Summary
+
+| Event | Purpose | Triggered By |
+|-------|---------|--------------|
+| `RSGCore:Client:OnPlayerLoaded` | Player login | Server |
+| `RSGCore:Client:OnPlayerUnload` | Player logout | Server |
+| `RSGCore:Player:SetPlayerData` | Data update | Server |
+| `RSGCore:Client:OnJobUpdate` | Job change | Server |
+| `RSGCore:Client:SetDuty` | Duty toggle | Server |
+| `RSGCore:Command:SpawnVehicle` | Spawn vehicle | Server/Client |
+| `RSGCore:Command:DeleteVehicle` | Delete vehicle | Server/Client |
+| `RSGCore:Client:UseItem` | Use item | Server |
+| `RSGCore:Client:PvpHasToggled` | PVP toggle | Server |
+| `RSGCore:Client:UpdateObject` | Refresh core | Server |
+
+---
+
+## Next Steps
+
+- [Server Events](/api-reference/endpoint/servereventreference) - Server-side event reference
+- [Client Functions](/api-reference/endpoint/clientfunctionreference) - Client function reference
+- [Threads & Loops](/lua-reference/threads) - Learn about CreateThread
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

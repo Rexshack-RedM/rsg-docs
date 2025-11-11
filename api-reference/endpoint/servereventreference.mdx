@@ -1,134 +1,704 @@
 ---
-title: "🖥️ Server Event Reference"
-description: "Learn about and how to use common core server events!"
+title: "🖥️ Server Events"
+description: "Complete guide to RSG Core server-side events and event handlers"
 ---
+
+## Introduction
+
+Server events are the backbone of RSG Framework's server-side communication system. They allow resources to listen for and respond to player actions, system events, and cross-resource communication.
+
+<Check>
+Server events run on the server and can be triggered by clients using `TriggerServerEvent` or by other server-side code using `TriggerEvent`.
+</Check>
+
+---
+
+## How It Works
+
+### Event Flow
+
+```
+Client Script → TriggerServerEvent('eventName', args) → Server Listens → Server Processes → Response
+```
+
+### Registering Events
+
+Server events are registered using `RegisterNetEvent`:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('eventName', function(arg1, arg2)
+    local src = source -- The player who triggered the event
+    -- Process event
+end)
+```
+
+<Warning>
+Always validate data received from client events! Never trust client input.
+</Warning>
+
+---
+
+## Core Player Events
+
+### RSGCore:Server:OnPlayerLoaded
+
+Triggered when a player successfully loads into the server after character selection.
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('RSGCore:Server:OnPlayerLoaded', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    print('Player loaded:', Player.PlayerData.charinfo.firstname)
+
+    -- Your custom logic here
+    -- Example: Give welcome bonus
+    Player.Functions.AddMoney('cash', 100, 'welcome-bonus')
+end)
+```
+
+**Use Cases:**
+- Initialize player-specific data
+- Load custom player stats
+- Trigger welcome messages
+- Set up player blips/markers
+
+### RSGCore:Server:OnPlayerUnload
+
+Triggered when a player logs out or returns to character selection.
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('RSGCore:Server:OnPlayerUnload', function()
+    local src = source
+    print('Player', src, 'logged out')
+
+    -- Clean up player-specific data
+    -- Remove from custom tables
+    -- Save additional data if needed
+end)
+```
+
+**Use Cases:**
+- Clean up temporary data
+- Save custom player stats
+- Remove player from active lists
+- Stop player-specific threads
+
+---
+
+## Server Management Events
 
 ### RSGCore:Server:CloseServer
 
-* Event to check if the server is closed
+Closes the server to non-whitelisted players with a custom reason.
 
 ```lua
+-- SERVER SIDE
 RegisterNetEvent('RSGCore:Server:CloseServer', function(reason)
     local src = source
-    if RSGCore.Functions.HasPermission(src, 'admin') then
-        reason = reason or 'No reason specified'
-        RSGCore.Config.Server.Closed = true
-        RSGCore.Config.Server.ClosedReason = reason
-        for k in pairs(RSGCore.Players) do
-            if not RSGCore.Functions.HasPermission(k, RSGCore.Config.Server.WhitelistPermission) then
-                RSGCore.Functions.Kick(k, reason, nil, nil)
-            end
-        end
-    else
-        RSGCore.Functions.Kick(src, 'You don\'t have permissions for this..', nil, nil)
+
+    -- Permission check
+    if not RSGCore.Functions.HasPermission(src, 'admin') then
+        RSGCore.Functions.Kick(src, 'You don\'t have permissions for this', nil, nil)
+        return
     end
+
+    reason = reason or 'Server maintenance'
+    RSGCore.Config.Server.Closed = true
+    RSGCore.Config.Server.ClosedReason = reason
+
+    -- Kick all non-whitelisted players
+    for playerId in pairs(RSGCore.Players) do
+        if not RSGCore.Functions.HasPermission(playerId, RSGCore.Config.Server.WhitelistPermission) then
+            RSGCore.Functions.Kick(playerId, reason, nil, nil)
+        end
+    end
+
+    print('Server closed:', reason)
 end)
 ```
+
+**Trigger from Client:**
+```lua
+-- CLIENT SIDE (admin only)
+TriggerServerEvent('RSGCore:Server:CloseServer', 'Emergency maintenance')
+```
+
+**Use Cases:**
+- Emergency maintenance
+- Scheduled restarts
+- Server events preparation
+- Testing with limited players
 
 ### RSGCore:Server:OpenServer
 
-* Event to check if the server is OpenServer
+Reopens the server to all players.
 
 ```lua
+-- SERVER SIDE
 RegisterNetEvent('RSGCore:Server:OpenServer', function()
     local src = source
-    if RSGCore.Functions.HasPermission(src, 'admin') then
-        RSGCore.Config.Server.Closed = false
-    else
-        RSGCore.Functions.Kick(src, 'You don\'t have permissions for this..', nil, nil)
+
+    if not RSGCore.Functions.HasPermission(src, 'admin') then
+        RSGCore.Functions.Kick(src, 'You don\'t have permissions for this', nil, nil)
+        return
     end
+
+    RSGCore.Config.Server.Closed = false
+    print('Server opened')
 end)
 ```
 
+**Trigger from Client:**
+```lua
+-- CLIENT SIDE (admin only)
+TriggerServerEvent('RSGCore:Server:OpenServer')
+```
+
+---
+
+## Player Data Events
+
 ### RSGCore:UpdatePlayer
 
-* Event for updating and saving player data
+Updates and saves player needs (hunger, thirst, cleanliness).
 
 ```lua
+-- SERVER SIDE
 RegisterNetEvent('RSGCore:UpdatePlayer', function()
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return end
-    local newHunger = Player.PlayerData.metadata['hunger'] - RSGCore.Config.Player.HungerRate
-    local newThirst = Player.PlayerData.metadata['thirst'] - RSGCore.Config.Player.ThirstRate
-    local newCleanliness = Player.PlayerData.metadata['cleanliness'] - RSGCore.Config.Player.CleanlinessRate
-    if newHunger <= 0 then
-        newHunger = 0
-    end
-    if newThirst <= 0 then
-        newThirst = 0
-    end
-    if newCleanliness <= 0 then
-        newCleanliness = 0
-    end
-    Player.Functions.SetMetaData('thirst', newThirst)
+
+    -- Decrease player needs
+    local newHunger = math.max(0, Player.PlayerData.metadata.hunger - RSGCore.Config.Player.HungerRate)
+    local newThirst = math.max(0, Player.PlayerData.metadata.thirst - RSGCore.Config.Player.ThirstRate)
+    local newCleanliness = math.max(0, Player.PlayerData.metadata.cleanliness - RSGCore.Config.Player.CleanlinessRate)
+
+    -- Update metadata
     Player.Functions.SetMetaData('hunger', newHunger)
+    Player.Functions.SetMetaData('thirst', newThirst)
     Player.Functions.SetMetaData('cleanliness', newCleanliness)
+
+    -- Notify client
     TriggerClientEvent('hud:client:UpdateNeeds', src, newHunger, newThirst, newCleanliness)
+
+    -- Save player data
     Player.Functions.Save()
+end)
+```
+
+<Info>
+This event is typically called on a timer to gradually decrease player needs over time.
+</Info>
+
+**Complete Example with Timer:**
+```lua
+-- SERVER SIDE
+CreateThread(function()
+    while true do
+        Wait(RSGCore.Config.Player.UpdateInterval or 300000) -- 5 minutes default
+
+        for src, Player in pairs(RSGCore.Players) do
+            if Player then
+                TriggerEvent('RSGCore:UpdatePlayer', src)
+            end
+        end
+    end
 end)
 ```
 
 ### RSGCore:Server:SetMetaData
 
-* Event to set a players metadata
+Sets a specific metadata value for a player with validation.
 
 ```lua
+-- SERVER SIDE
 RegisterNetEvent('RSGCore:Server:SetMetaData', function(meta, data)
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return end
+
+    -- Validate needs (cap at 100)
     if meta == 'hunger' or meta == 'thirst' or meta == 'cleanliness' then
         if data > 100 then
             data = 100
+        elseif data < 0 then
+            data = 0
         end
     end
+
+    -- Update metadata
     Player.Functions.SetMetaData(meta, data)
-    TriggerClientEvent('hud:client:UpdateNeeds', src, Player.PlayerData.metadata['hunger'], Player.PlayerData.metadata['thirst'], Player.PlayerData.metadata['cleanliness'])
+
+    -- Update HUD
+    TriggerClientEvent('hud:client:UpdateNeeds', src,
+        Player.PlayerData.metadata.hunger,
+        Player.PlayerData.metadata.thirst,
+        Player.PlayerData.metadata.cleanliness
+    )
 end)
 ```
 
+**Trigger from Client:**
+```lua
+-- CLIENT SIDE
+TriggerServerEvent('RSGCore:Server:SetMetaData', 'hunger', 75)
+```
+
+**Use Cases:**
+- Restore hunger after eating
+- Restore thirst after drinking
+- Restore cleanliness after bathing
+- Custom metadata updates
+
+---
+
+## Job & Duty Events
+
 ### RSGCore:ToggleDuty
 
-* Event to toggle a player's duty status
+Toggles a player's on-duty status for their job.
 
 ```lua
+-- SERVER SIDE
 RegisterNetEvent('RSGCore:ToggleDuty', function()
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return end
-    if Player.PlayerData.job.onduty then
-        Player.Functions.SetJobDuty(false)
-        TriggerClientEvent('ox_lib:notify', src, {title = Lang:t('info.off_duty'), type = 'info', duration = 5000 })
-    else
-        Player.Functions.SetJobDuty(true)
-        TriggerClientEvent('ox_lib:notify', src, {title = Lang:t('info.on_duty'), type = 'info', duration = 5000 })
-    end
 
-    TriggerEvent('RSGCore:Server:SetDuty', src, Player.PlayerData.job.onduty)
-    TriggerClientEvent('RSGCore:Client:SetDuty', src, Player.PlayerData.job.onduty)
+    -- Check if job has duty system
+    if not Player.PlayerData.job.name then return end
+
+    -- Toggle duty
+    local newDutyStatus = not Player.PlayerData.job.onduty
+    Player.Functions.SetJobDuty(newDutyStatus)
+
+    -- Notify player
+    lib.notify(src, {
+        description = newDutyStatus and 'You are now on duty' or 'You are now off duty',
+        type = 'info'
+    })
+
+    -- Trigger client event for additional logic
+    TriggerClientEvent('RSGCore:Client:SetDuty', src, newDutyStatus)
 end)
 ```
 
-### RSGCore:CallCommand
-
-* Event to trigger a command outside the chat (ex: rsg-adminmenu)
-
+**Trigger from Client:**
 ```lua
-RegisterNetEvent('RSGCore:CallCommand', function(command, args)
+-- CLIENT SIDE
+RegisterCommand('duty', function()
+    TriggerServerEvent('RSGCore:ToggleDuty')
+end)
+```
+
+**Complete Example with Job Restrictions:**
+```lua
+-- SERVER SIDE
+local dutyJobs = {
+    ['police'] = true,
+    ['doctor'] = true,
+    ['mechanic'] = true
+}
+
+RegisterNetEvent('RSGCore:ToggleDuty', function()
     local src = source
-    if not RSGCore.Commands.List[command] then return end
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return end
-    local hasPerm = RSGCore.Functions.HasPermission(src, 'command.' .. RSGCore.Commands.List[command].name)
-    if hasPerm then
-        if RSGCore.Commands.List[command].argsrequired and #RSGCore.Commands.List[command].arguments ~= 0 and not args[#RSGCore.Commands.List[command].arguments] then
-            TriggerClientEvent('ox_lib:notify', src, {title = Lang:t('error.missing_args2'), type = 'error', duration = 5000 })
+
+    -- Check if job has duty system
+    if not dutyJobs[Player.PlayerData.job.name] then
+        lib.notify(src, {
+            description = 'Your job doesn\'t have a duty system',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Toggle duty
+    local newDutyStatus = not Player.PlayerData.job.onduty
+    Player.Functions.SetJobDuty(newDutyStatus)
+
+    -- Job-specific logic
+    if Player.PlayerData.job.name == 'police' then
+        if newDutyStatus then
+            -- Add police blip
+            TriggerClientEvent('police:client:addBlip', src)
         else
-            RSGCore.Commands.List[command].callback(src, args)
+            -- Remove police blip
+            TriggerClientEvent('police:client:removeBlip', src)
         end
-    else
-        TriggerClientEvent('ox_lib:notify', src, {title = Lang:t('error.no_access'), type = 'error', duration = 5000 })
+    end
+
+    lib.notify(src, {
+        description = newDutyStatus and 'Clocked in' or 'Clocked out',
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Callback Events
+
+### RSGCore:Server:TriggerCallback
+
+Handles server-side callback requests from clients.
+
+```lua
+-- SERVER SIDE (internal - used by callback system)
+RegisterNetEvent('RSGCore:Server:TriggerCallback', function(name, ...)
+    local src = source
+
+    if not RSGCore.ServerCallbacks[name] then
+        print('^1[ERROR]^7 Callback', name, 'does not exist')
+        return
+    end
+
+    RSGCore.ServerCallbacks[name](src, function(...)
+        TriggerClientEvent('RSGCore:Client:TriggerCallback', src, name, ...)
+    end, ...)
+end)
+```
+
+<Info>
+This is an internal event used by the callback system. Use `RSGCore.Functions.CreateCallback` instead of listening to this event directly.
+</Info>
+
+**Proper Usage:**
+```lua
+-- SERVER SIDE - Create callback
+RSGCore.Functions.CreateCallback('myCallback', function(source, cb, arg1)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then
+        cb(nil)
+        return
+    end
+
+    cb(Player.PlayerData.money.cash)
+end)
+```
+
+```lua
+-- CLIENT SIDE - Trigger callback
+RSGCore.Functions.TriggerCallback('myCallback', function(cashAmount)
+    print('Player has $' .. cashAmount)
+end, someArgument)
+```
+
+---
+
+## Permission Events
+
+### RSGCore:Server:GivePermission
+
+Grants a permission level to a player (typically admin/god).
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('RSGCore:Server:GivePermission', function(targetId, permission)
+    local src = source
+
+    -- Only admins can grant permissions
+    if not RSGCore.Functions.HasPermission(src, 'god') then
+        lib.notify(src, {
+            description = 'You don\'t have permission to do this',
+            type = 'error'
+        })
+        return
+    end
+
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then
+        lib.notify(src, {
+            description = 'Player not found',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Grant permission
+    RSGCore.Functions.AddPermission(targetId, permission)
+
+    lib.notify(src, {
+        description = 'Granted ' .. permission .. ' to player',
+        type = 'success'
+    })
+
+    lib.notify(targetId, {
+        description = 'You have been granted ' .. permission .. ' permissions',
+        type = 'info'
+    })
+end)
+```
+
+### RSGCore:Server:RemovePermission
+
+Removes a permission level from a player.
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('RSGCore:Server:RemovePermission', function(targetId, permission)
+    local src = source
+
+    if not RSGCore.Functions.HasPermission(src, 'god') then
+        lib.notify(src, {
+            description = 'You don\'t have permission to do this',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Remove permission
+    RSGCore.Functions.RemovePermission(targetId, permission)
+
+    lib.notify(src, {
+        description = 'Removed ' .. permission .. ' from player',
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Best Practices
+
+### 1. Always Validate Player
+
+```lua
+-- GOOD
+RegisterNetEvent('myEvent', function(arg)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Safe to use Player
+end)
+
+-- BAD
+RegisterNetEvent('myEvent', function(arg)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    -- No check - will error if player doesn't exist!
+    Player.Functions.AddMoney('cash', 100)
+end)
+```
+
+### 2. Validate Client Input
+
+```lua
+-- GOOD
+RegisterNetEvent('shop:purchase', function(itemName, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Validate item exists
+    if not RSGCore.Shared.Items[itemName] then
+        return
+    end
+
+    -- Validate amount
+    if type(amount) ~= 'number' or amount < 1 or amount > 100 then
+        return
+    end
+
+    -- Process purchase
+end)
+```
+
+### 3. Use Meaningful Event Names
+
+```lua
+-- GOOD
+RegisterNetEvent('banking:server:deposit', ...)
+RegisterNetEvent('inventory:server:giveItem', ...)
+RegisterNetEvent('police:server:handcuff', ...)
+
+-- BAD
+RegisterNetEvent('doStuff', ...)
+RegisterNetEvent('event1', ...)
+RegisterNetEvent('handle', ...)
+```
+
+### 4. Handle Permissions Properly
+
+```lua
+-- GOOD
+RegisterNetEvent('admin:giveWeapon', function(targetId, weapon)
+    local src = source
+
+    if not RSGCore.Functions.HasPermission(src, 'admin') then
+        return -- Silent fail or notify
+    end
+
+    -- Admin action
+end)
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Transaction Event
+
+```lua
+RegisterNetEvent('banking:server:deposit', function(amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Validate amount
+    if type(amount) ~= 'number' or amount < 1 then
+        lib.notify(src, {description = 'Invalid amount', type = 'error'})
+        return
+    end
+
+    -- Check player has cash
+    if Player.Functions.GetMoney('cash') < amount then
+        lib.notify(src, {description = 'Not enough cash', type = 'error'})
+        return
+    end
+
+    -- Process deposit
+    Player.Functions.RemoveMoney('cash', amount, 'bank-deposit')
+    Player.Functions.AddMoney('bank', amount, 'bank-deposit')
+
+    lib.notify(src, {
+        description = 'Deposited $' .. amount,
+        type = 'success'
+    })
+end)
+```
+
+### Pattern 2: Item Give/Take Event
+
+```lua
+RegisterNetEvent('admin:giveItem', function(targetId, itemName, amount)
+    local src = source
+
+    -- Permission check
+    if not RSGCore.Functions.HasPermission(src, 'admin') then
+        return
+    end
+
+    -- Validate inputs
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then return end
+
+    if not RSGCore.Shared.Items[itemName] then return end
+
+    amount = tonumber(amount) or 1
+
+    -- Give item
+    exports['rsg-inventory']:AddItem(targetId, itemName, amount, nil, nil, 'admin-give')
+
+    lib.notify(src, {
+        description = 'Gave item to player',
+        type = 'success'
+    })
+end)
+```
+
+### Pattern 3: Proximity Check Event
+
+```lua
+RegisterNetEvent('shop:server:purchase', function(shopId, itemName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Get shop location
+    local shopCoords = Config.Shops[shopId].coords
+
+    -- Check if player is near
+    local ped = GetPlayerPed(src)
+    local playerCoords = GetEntityCoords(ped)
+    local distance = #(playerCoords - shopCoords)
+
+    if distance > 5.0 then
+        lib.notify(src, {description = 'Too far from shop', type = 'error'})
+        return
+    end
+
+    -- Process purchase
+end)
+```
+
+---
+
+## Troubleshooting
+
+### Event Not Triggering
+
+<AccordionGroup>
+  <Accordion title="Check event name spelling" defaultOpen={false}>
+    Make sure the event name matches exactly between client and server
+  </Accordion>
+
+  <Accordion title="Verify RegisterNetEvent vs AddEventHandler" defaultOpen={false}>
+    Use `RegisterNetEvent` for networked events triggered across client/server
+  </Accordion>
+
+  <Accordion title="Check if source exists" defaultOpen={false}>
+    Always validate `source` exists before using it
+  </Accordion>
+</AccordionGroup>
+
+### Player Not Found
+
+```lua
+-- Common issue
+RegisterNetEvent('myEvent', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if not Player then
+        print('Player not loaded yet or disconnected')
+        return
     end
 end)
 ```
+
+### Permission Denied
+
+```lua
+-- Always check permissions
+if not RSGCore.Functions.HasPermission(src, 'admin') then
+    print('Player', src, 'tried to use admin command')
+    return
+end
+```
+
+---
+
+## Summary
+
+| Event | Purpose | Permission Required |
+|-------|---------|-------------------|
+| `RSGCore:Server:OnPlayerLoaded` | Player login | None |
+| `RSGCore:Server:OnPlayerUnload` | Player logout | None |
+| `RSGCore:Server:CloseServer` | Close server | Admin |
+| `RSGCore:Server:OpenServer` | Open server | Admin |
+| `RSGCore:UpdatePlayer` | Update needs | None |
+| `RSGCore:Server:SetMetaData` | Set player metadata | None |
+| `RSGCore:ToggleDuty` | Toggle job duty | None |
+| `RSGCore:Server:GivePermission` | Grant permissions | God |
+| `RSGCore:Server:RemovePermission` | Remove permissions | God |
+
+---
+
+## Next Steps
+
+- [Client Events](/api-reference/endpoint/clienteventreference) - Client-side event reference
+- [Server Functions](/api-reference/endpoint/serverfunctionreference) - Server function reference
+- [Callbacks](/essentials/callbacks) - Learn about the callback system
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

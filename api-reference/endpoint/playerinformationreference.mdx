@@ -1,33 +1,668 @@
 ---
-title: "🤵 Player Information Reference"
-description: "Learn how to aquire player information for your scripts."
+title: "🤵 Player Information"
+description: "Complete guide to accessing and using player information in RSG Framework"
 ---
 
-### This guide will help you understand how to retrieve player information such as their name, citizen ID, and permissions, and use this data in your scripts.
+## Introduction
 
-### Step 1: Get Player Information
+Player information is the core data structure that defines everything about a player in RSG Framework. Understanding how to access and manipulate this data is essential for creating any meaningful gameplay feature.
 
-To access the information of a player, we need to retrieve their player object using the `RSGCore.Functions.GetPlayer()` function. This function will return an object containing various details about the player, including their character information and permissions.
+<Check>
+PlayerData contains all information about a player: identity, job, gang, money, inventory, metadata, and more!
+</Check>
 
-<Info>
-    Example: Retrieve Player Data
-</Info>
+---
 
-<CodeGroup>
-  ```lua client.lua
-local src = source  -- The source refers to the player who triggered the event
-local Player = RSGCore.Functions.GetPlayer(src)  -- Get the player object using their source ID
+## How It Works
 
--- Accessing player information
-local firstname = Player.PlayerData.charinfo.firstname  -- Player's first name
-local lastname = Player.PlayerData.charinfo.lastname  -- Player's last name
-local citizenid = Player.PlayerData.citizenid  -- Player's citizen ID
-  ```
-</CodeGroup>
+### Getting Player Object
 
-### The Player object has the following structure:
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
 
-* `Player.PlayerData.charinfo.firstname`: The player's first name.
-* `Player.PlayerData.charinfo.lastname`: The player's last name.
-* `Player.PlayerData.citizenid`: The player's citizen ID.
+-- Now you have access to all player data
+local citizenid = Player.PlayerData.citizenid
+```
 
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local PlayerData = RSGCore.Functions.GetPlayerData()
+
+-- Now you have access to local player data
+local firstname = PlayerData.charinfo.firstname
+```
+
+<Warning>
+**Server-side**: Always validate that `Player` exists before using it!
+**Client-side**: Make sure player is loaded (`RSGCore:Client:OnPlayerLoaded`) before accessing PlayerData!
+</Warning>
+
+---
+
+## PlayerData Structure
+
+The complete PlayerData object structure:
+
+```lua
+PlayerData = {
+    source = number,          -- Player's server ID
+    citizenid = string,       -- Unique citizen identifier
+    cid = number,             -- Character ID in database
+    license = string,         -- Player's RockstarGames license
+    name = string,            -- Player's server name
+    charinfo = table,         -- Character information
+    money = table,            -- Player's money (all types)
+    job = table,              -- Current job
+    gang = table,             -- Current gang
+    metadata = table,         -- Player stats/metadata
+    items = table,            -- Inventory items
+    position = vector3,       -- Last saved position
+    Offline = boolean         -- If player is offline (for offline player operations)
+}
+```
+
+---
+
+## Character Information
+
+### charinfo Structure
+
+```lua
+PlayerData.charinfo = {
+    firstname = string,  -- First name
+    lastname = string,   -- Last name
+    birthdate = string,  -- Date of birth (MM-DD-YYYY)
+    gender = number,     -- Gender (0 = male, 1 = female)
+    nationality = string,-- Nationality
+    account = string,    -- Bank account number
+    phone = string,      -- Phone number
+    backstory = string   -- Character backstory
+}
+```
+
+### Accessing Character Info
+
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+local fullName = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname
+local birthdate = Player.PlayerData.charinfo.birthdate
+local gender = Player.PlayerData.charinfo.gender == 0 and 'Male' or 'Female'
+
+print(fullName, birthdate, gender)
+```
+
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+
+    lib.notify({
+        title = 'Welcome!',
+        description = 'Hello, ' .. PlayerData.charinfo.firstname,
+        type = 'success'
+    })
+end)
+```
+
+**Complete Example - Identity Card:**
+```lua
+-- SERVER SIDE
+RegisterNetEvent('identity:server:showCard', function(targetId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Player or not Target then return end
+
+    local cardData = {
+        name = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
+        dob = Player.PlayerData.charinfo.birthdate,
+        gender = Player.PlayerData.charinfo.gender == 0 and 'Male' or 'Female',
+        nationality = Player.PlayerData.charinfo.nationality,
+        citizenid = Player.PlayerData.citizenid
+    }
+
+    TriggerClientEvent('identity:client:showCard', targetId, cardData)
+end)
+```
+
+---
+
+## Money System
+
+### money Structure
+
+```lua
+PlayerData.money = {
+    cash = number,        -- Cash on hand
+    bank = number,        -- Bank account
+    bloodmoney = number,  -- Blood money (criminal currency)
+    valbank = number,     -- Valentine bank
+    rhobank = number,     -- Rhodes bank
+    blkbank = number,     -- Blackwater bank
+    stdbank = number      -- Saint Denis bank
+}
+```
+
+### Accessing Money
+
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Get specific money type
+local cash = Player.Functions.GetMoney('cash')
+local bank = Player.Functions.GetMoney('bank')
+
+-- Get all money
+local allMoney = Player.PlayerData.money
+
+print('Cash: $' .. cash)
+print('Bank: $' .. bank)
+print('Total: $' .. (cash + bank))
+```
+
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local PlayerData = RSGCore.Functions.GetPlayerData()
+
+local cash = PlayerData.money.cash
+local bank = PlayerData.money.bank
+
+print('You have $' .. cash .. ' cash and $' .. bank .. ' in bank')
+```
+
+**Complete Example - Money Display:**
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Player:SetPlayerData', function(newData)
+    local oldMoney = RSGCore.PlayerData.money or {}
+    RSGCore.PlayerData = newData
+
+    -- Check for money changes
+    for moneyType, amount in pairs(newData.money) do
+        if oldMoney[moneyType] and oldMoney[moneyType] ~= amount then
+            local difference = amount - oldMoney[moneyType]
+
+            if difference > 0 then
+                lib.notify({
+                    description = '+$' .. difference .. ' ' .. moneyType,
+                    type = 'success'
+                })
+            elseif difference < 0 then
+                lib.notify({
+                    description = '-$' .. math.abs(difference) .. ' ' .. moneyType,
+                    type = 'error'
+                })
+            end
+        end
+    end
+end)
+```
+
+---
+
+## Job System
+
+### job Structure
+
+```lua
+PlayerData.job = {
+    name = string,        -- Job name (e.g., 'police')
+    label = string,       -- Job display name (e.g., 'Police Department')
+    payment = number,     -- Payment per paycheck
+    onduty = boolean,     -- If player is on duty
+    isboss = boolean,     -- If player is boss
+    grade = {
+        name = string,    -- Grade name (e.g., 'chief')
+        level = number    -- Grade level (0-10)
+    },
+    type = string         -- Job type (e.g., 'leo', 'ems')
+}
+```
+
+### Accessing Job Info
+
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+local job = Player.PlayerData.job
+
+print('Job:', job.label)
+print('Grade:', job.grade.name)
+print('Level:', job.grade.level)
+print('On Duty:', job.onduty)
+print('Is Boss:', job.isboss)
+
+-- Check if specific job
+if job.name == 'police' then
+    print('Player is police')
+end
+
+-- Check if specific grade or higher
+if job.name == 'police' and job.grade.level >= 3 then
+    print('Player is high rank police (3+)')
+end
+```
+
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+
+    if PlayerData.job.name == 'doctor' then
+        -- Initialize doctor features
+        TriggerEvent('doctor:client:init')
+    end
+end)
+
+-- Listen for job changes
+RegisterNetEvent('RSGCore:Client:OnJobUpdate', function(job)
+    print('New job:', job.label)
+    print('New grade:', job.grade.name)
+end)
+```
+
+**Complete Example - Job Restricted Area:**
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    local policeStation = vector3(2516.0, -1306.0, 48.0)
+
+    while true do
+        local PlayerData = RSGCore.Functions.GetPlayerData()
+        local ped = PlayerPedId()
+        local coords = GetEntityCoords(ped)
+        local distance = #(coords - policeStation)
+
+        if distance < 50.0 and PlayerData.job.name ~= 'police' then
+            lib.notify({
+                description = 'Restricted area!',
+                type = 'error'
+            })
+
+            -- Teleport player away
+            SetEntityCoords(ped, coords.x + 10, coords.y, coords.z)
+        end
+
+        Wait(5000)
+    end
+end)
+```
+
+---
+
+## Gang System
+
+### gang Structure
+
+```lua
+PlayerData.gang = {
+    name = string,        -- Gang name (e.g., 'lemoyne')
+    label = string,       -- Gang display name (e.g., 'Lemoyne Raiders')
+    isboss = boolean,     -- If player is gang leader
+    grade = {
+        name = string,    -- Grade name
+        level = number    -- Grade level
+    }
+}
+```
+
+### Accessing Gang Info
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+local gang = Player.PlayerData.gang
+
+if gang.name ~= 'none' then
+    print('Player is in gang:', gang.label)
+    print('Gang grade:', gang.grade.name)
+    print('Is boss:', gang.isboss)
+else
+    print('Player has no gang')
+end
+```
+
+---
+
+## Metadata
+
+### metadata Structure
+
+Common metadata fields:
+
+```lua
+PlayerData.metadata = {
+    hunger = number,          -- 0-100
+    thirst = number,          -- 0-100
+    cleanliness = number,     -- 0-100
+    stress = number,          -- 0-100
+    isdead = boolean,         -- If player is dead
+    inlaststand = boolean,    -- If player is in last stand
+    ishandcuffed = boolean,   -- If player is handcuffed
+    tracker = boolean,        -- If player has tracker
+    injail = number,          -- Jail time remaining (0 = not in jail)
+    jailitems = table,        -- Items stored before jail
+    status = table,           -- Status effects
+    phonedata = table,        -- Phone settings
+    callsign = string,        -- Job callsign
+    bloodtype = string,       -- Blood type (A+, B-, etc.)
+    dealerrep = number,       -- Dealer reputation
+    craftingrep = number,     -- Crafting reputation
+    attachmentcraftingrep = number, -- Attachment crafting reputation
+    currentapartment = number,-- Current apartment ID
+    jobrep = table,           -- Job reputation
+    rep = table               -- General reputation
+}
+```
+
+### Accessing Metadata
+
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Get specific metadata
+local hunger = Player.PlayerData.metadata.hunger
+local thirst = Player.PlayerData.metadata.thirst
+
+-- Check status
+if Player.PlayerData.metadata.isdead then
+    print('Player is dead')
+end
+
+if Player.PlayerData.metadata.ishandcuffed then
+    print('Player is handcuffed')
+end
+
+-- Set metadata
+Player.Functions.SetMetaData('hunger', 100)
+Player.Functions.SetMetaData('thirst', 100)
+```
+
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    while true do
+        local PlayerData = RSGCore.Functions.GetPlayerData()
+
+        if PlayerData.metadata then
+            -- Update HUD
+            SendNUIMessage({
+                action = 'updateNeeds',
+                hunger = PlayerData.metadata.hunger,
+                thirst = PlayerData.metadata.thirst,
+                cleanliness = PlayerData.metadata.cleanliness
+            })
+        end
+
+        Wait(5000)
+    end
+end)
+```
+
+---
+
+## Inventory Items
+
+### items Structure
+
+```lua
+PlayerData.items = {
+    [1] = {
+        name = string,        -- Item name
+        amount = number,      -- Quantity
+        info = table,         -- Item metadata
+        label = string,       -- Display name
+        description = string, -- Item description
+        weight = number,      -- Item weight
+        type = string,        -- 'item' or 'weapon'
+        unique = boolean,     -- If item is unique
+        useable = boolean,    -- If item can be used
+        image = string,       -- Image filename
+        slot = number,        -- Inventory slot
+        shouldClose = boolean,-- If inventory should close on use
+        combinable = table    -- Crafting combinations
+    },
+    -- More items...
+}
+```
+
+### Accessing Inventory
+
+**Server-Side:**
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Get all items
+for slot, item in pairs(Player.PlayerData.items) do
+    print('Slot', slot, ':', item.amount, 'x', item.label)
+end
+
+-- Check if has specific item
+local hasBread = exports['rsg-inventory']:HasItem(source, 'bread', 5)
+
+if hasBread then
+    print('Player has at least 5 bread')
+end
+
+-- Get item count
+local breadCount = exports['rsg-inventory']:GetItemCount(source, 'bread')
+print('Player has', breadCount, 'bread')
+```
+
+**Client-Side:**
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local PlayerData = RSGCore.Functions.GetPlayerData()
+
+for slot, item in pairs(PlayerData.items) do
+    if item.name == 'weapon_revolver_cattleman' then
+        print('Found revolver in slot', slot)
+        print('Quality:', item.info.quality)
+        print('Serial:', item.info.serie)
+    end
+end
+```
+
+---
+
+## Position
+
+### position Structure
+
+```lua
+PlayerData.position = {
+    x = number,
+    y = number,
+    z = number
+}
+```
+
+### Accessing Position
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+local lastPos = Player.PlayerData.position
+print('Last saved position:', lastPos.x, lastPos.y, lastPos.z)
+
+-- Get current position
+local ped = GetPlayerPed(source)
+local currentPos = GetEntityCoords(ped)
+```
+
+---
+
+## Common Use Cases
+
+### Use Case 1: Check Player Identity
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('bounty:server:checkBounty', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local citizenid = Player.PlayerData.citizenid
+    local name = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname
+
+    -- Check bounty in database
+    MySQL.query('SELECT bounty FROM bounties WHERE citizenid = ?', {citizenid}, function(result)
+        if result[1] then
+            lib.notify(src, {
+                description = name .. ' has a $' .. result[1].bounty .. ' bounty!',
+                type = 'error'
+            })
+        end
+    end)
+end)
+```
+
+### Use Case 2: Job Paycheck
+
+```lua
+-- SERVER SIDE
+CreateThread(function()
+    while true do
+        Wait(1800000) -- Every 30 minutes
+
+        for src, Player in pairs(RSGCore.Players) do
+            if Player then
+                local job = Player.PlayerData.job
+
+                if job.onduty and job.payment > 0 then
+                    Player.Functions.AddMoney('bank', job.payment, 'job-paycheck')
+
+                    lib.notify(src, {
+                        description = 'Paycheck received: $' .. job.payment,
+                        type = 'success'
+                    })
+                end
+            end
+        end
+    end
+end)
+```
+
+### Use Case 3: Metadata Status Effects
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('consumables:server:eatFood', function(itemSlot)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Remove item
+    if exports['rsg-inventory']:RemoveItem(src, 'bread', 1, itemSlot, 'consumed') then
+        -- Restore hunger
+        local currentHunger = Player.PlayerData.metadata.hunger or 0
+        local newHunger = math.min(100, currentHunger + 25)
+
+        Player.Functions.SetMetaData('hunger', newHunger)
+
+        lib.notify(src, {
+            description = 'You ate bread (+25 hunger)',
+            type = 'success'
+        })
+    end
+end)
+```
+
+---
+
+## Best Practices
+
+### 1. Always Validate Player Exists
+
+```lua
+-- GOOD
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Now safe to use Player
+
+-- BAD
+local Player = RSGCore.Functions.GetPlayer(source)
+print(Player.PlayerData.citizenid) -- Can error!
+```
+
+### 2. Use Player Functions for Money
+
+```lua
+-- GOOD - Uses built-in functions
+Player.Functions.AddMoney('cash', 100, 'reward')
+Player.Functions.RemoveMoney('cash', 50, 'purchase')
+
+-- BAD - Direct modification
+Player.PlayerData.money.cash = Player.PlayerData.money.cash + 100
+```
+
+### 3. Check Metadata Before Using
+
+```lua
+-- GOOD
+if Player.PlayerData.metadata and Player.PlayerData.metadata.hunger then
+    local hunger = Player.PlayerData.metadata.hunger
+end
+
+-- BAD
+local hunger = Player.PlayerData.metadata.hunger -- Can error!
+```
+
+---
+
+## Summary
+
+| Data Type | Server Access | Client Access | Mutable |
+|-----------|--------------|---------------|---------|
+| `charinfo` | `Player.PlayerData.charinfo` | `PlayerData.charinfo` | Rarely |
+| `money` | `Player.Functions.GetMoney()` | `PlayerData.money` | Server only |
+| `job` | `Player.PlayerData.job` | `PlayerData.job` | Server only |
+| `gang` | `Player.PlayerData.gang` | `PlayerData.gang` | Server only |
+| `metadata` | `Player.PlayerData.metadata` | `PlayerData.metadata` | Server only |
+| `items` | `Player.PlayerData.items` | `PlayerData.items` | Via exports |
+
+---
+
+## Next Steps
+
+- [Player Data Structure](/essentials/playerdata) - Complete PlayerData documentation
+- [Server Functions](/api-reference/endpoint/serverfunctionreference) - Player manipulation functions
+- [Inventory Functions](/inventory/functions) - Inventory management
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!
