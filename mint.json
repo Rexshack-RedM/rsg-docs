@@ -31,6 +31,10 @@
       "url": "api-reference"
     },
     {
+      "name": "API Inventory",
+      "url": "inventory"
+    },
+    {
       "name": "Lua RedM Practice",
       "url": "lua-reference"
     }
@@ -98,6 +102,14 @@
       "group": "Effective Lua",
       "pages": [
         "lua-reference/luabegining"
+      ]
+    },
+    {
+      "group": "Inventory System",
+      "pages": [
+        "inventory/overview",
+        "inventory/functions",
+        "inventory/weapons"
       ]
     }
   ],

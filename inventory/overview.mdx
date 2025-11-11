@@ -1,0 +1,520 @@
+---
+title: "📦 RSG Inventory Overview"
+description: "Complete guide to the RSG Framework inventory system"
+---
+
+## Introduction
+
+The RSG Inventory system (`rsg-inventory`) is a comprehensive, weight-based inventory management system for RedM. It provides players with persistent inventory storage, item management, drops, stashes, and shops.
+
+**Version**: 2.7.1
+
+<Check>
+RSG Inventory is tightly integrated with rsg-core and rsg-weapons. All three work together to provide a complete item and weapon management system.
+</Check>
+
+---
+
+## Core Features
+
+### 📊 Weight & Slot System
+- **Weight-Based**: Every item has a weight value, and players have a maximum carry capacity
+- **Slot-Based**: Inventory is divided into slots (default: 25 slots)
+- **Configurable**: Weight and slots can be adjusted per player via `PlayerData`
+
+### 🎒 Inventory Types
+The system supports multiple inventory types:
+
+1. **Player Inventory** - Personal inventory for each player
+2. **Stashes** - Persistent storage locations (houses, gang storage, etc.)
+3. **Drops** - Ground items that can be picked up
+4. **Shops** - Vendor inventories for purchasing items
+
+### 🔄 Item Management
+- **Add/Remove Items**: Server-side functions to modify inventory
+- **Item Transfer**: Move items between inventories
+- **Item Info**: Custom metadata for items (serial numbers, quality, etc.)
+- **Item Decay**: Time-based item quality degradation
+
+### ⚔️ Weapon Integration
+- Weapons are stored as inventory items with type `'weapon'`
+- Weapon-specific data (serial number, quality, ammo) stored in item `info`
+- Seamless integration with rsg-weapons for durability and repair
+
+---
+
+## How It Works
+
+### Item Structure
+
+Every item in the inventory follows this structure:
+
+```lua
+{
+    name = 'bread',              -- Item identifier (from shared/items.lua)
+    label = 'Bread',             -- Display name
+    amount = 5,                  -- Quantity
+    type = 'item',               -- Type: 'item' or 'weapon'
+    slot = 3,                    -- Inventory slot number
+    weight = 200,                -- Weight per item (in grams)
+    info = {                     -- Custom metadata
+        quality = 100,           -- Item quality (0-100)
+        lastUpdate = 1234567890  -- Timestamp for decay
+    },
+    unique = false,              -- If true, each item takes a slot
+    useable = true,              -- If true, can be used
+    image = 'bread.png',         -- Image file
+    description = 'Fresh bread', -- Item description
+    shouldClose = true,          -- Close inventory on use
+    combinable = {}              -- Crafting combinations
+}
+```
+
+### Weapon Item Structure
+
+Weapons have additional information:
+
+```lua
+{
+    name = 'weapon_revolver_cattleman',
+    label = 'Cattleman Revolver',
+    amount = 1,
+    type = 'weapon',
+    slot = 1,
+    weight = 2000,
+    info = {
+        serie = 'ABC12XYZ34DEF56',  -- Unique serial number
+        quality = 85,                -- Weapon condition (0-100)
+        ammo = 6                     -- Current ammo loaded
+    },
+    unique = true,
+    useable = false,
+    image = 'weapon_revolver_cattleman.png'
+}
+```
+
+---
+
+## Weight System
+
+### How Weight Works
+
+- Items have a base `weight` value (in grams)
+- Total weight = `item.weight * item.amount`
+- Player carry capacity defined in `PlayerData.weight` (default: 35000g = 35kg)
+
+### Example Weight Calculation
+
+```lua
+-- Player has:
+-- 5x Bread (weight: 200g each) = 1000g
+-- 2x Water Canteen (weight: 500g each) = 1000g
+-- 1x Revolver (weight: 2000g) = 2000g
+-- Total: 4000g (4kg)
+
+local totalWeight = exports['rsg-inventory']:GetTotalWeight(Player.PlayerData.items)
+-- totalWeight = 4000
+
+local maxWeight = Player.PlayerData.weight
+-- maxWeight = 35000
+
+local freeWeight = maxWeight - totalWeight
+-- freeWeight = 31000 (31kg available)
+```
+
+<Info>
+If a player's inventory is full (weight or slots), the system will automatically drop items on the ground instead of deleting them!
+</Info>
+
+---
+
+## Slot System
+
+### How Slots Work
+
+- Each inventory has a maximum number of slots
+- Each item occupies one slot, regardless of quantity
+- **Exception**: Unique items always take one slot each
+
+```lua
+-- Player slots: 25
+
+-- Non-unique items stack in one slot:
+-- Slot 1: 50x Bread (one slot used)
+
+-- Unique items take individual slots:
+-- Slot 2: Revolver #1 (serial: ABC123)
+-- Slot 3: Revolver #2 (serial: XYZ789)
+-- Each weapon takes its own slot
+```
+
+### Checking Slots
+
+```lua
+local slotsUsed, slotsFree = exports['rsg-inventory']:GetSlots(source)
+print('Player has '.. slotsUsed ..' slots used and '.. slotsFree ..' slots free')
+```
+
+---
+
+## Item Decay System
+
+The inventory supports time-based item quality degradation.
+
+### How Decay Works
+
+Items with the `decay` property in `shared/items.lua` will lose quality over time:
+
+```lua
+-- In rsg-core/shared/items.lua
+['bread'] = {
+    name = 'bread',
+    label = 'Bread',
+    weight = 200,
+    type = 'item',
+    image = 'bread.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    combinable = nil,
+    description = 'Fresh baked bread',
+    decay = 2.0  -- Decay rate (days to go from 100 to 0 quality)
+},
+```
+
+- **Quality**: Ranges from 0-100
+- **Decay Rate**: Time it takes for quality to reach 0
+- **Auto-Remove**: Items at 0 quality are automatically removed on inventory load
+
+### Quality Effects
+
+- **100-75%**: Fresh/Good condition
+- **74-50%**: Decent condition
+- **49-25%**: Poor condition
+- **24-1%**: Very poor condition
+- **0%**: Item is destroyed/unusable
+
+<Warning>
+Decayed items (0% quality) are permanently deleted when the inventory is loaded. Players cannot recover them!
+</Warning>
+
+---
+
+## Ground Drops
+
+### How Drops Work
+
+When items are dropped (or forced out of full inventory), they spawn on the ground as physical objects.
+
+Features:
+- **Visual Object**: A physical bag/satchel spawns at the location
+- **Persistence**: Drops remain until picked up or server restart
+- **Network Synced**: All players can see and interact with drops
+- **Weight Limit**: Drops can hold multiple items up to weight limit
+
+### Drop Properties
+
+```lua
+{
+    id = 'drop_12345',           -- Unique drop identifier
+    coords = vector3(x, y, z),   -- Drop location
+    items = {},                  -- Array of items in drop
+    isOpen = false,              -- If someone is accessing it
+    label = 'Ground Stash',      -- Display name
+    maxweight = 250000,          -- Max weight (default: 250kg)
+    slots = 50                   -- Number of slots
+}
+```
+
+---
+
+## Stashes
+
+Stashes are persistent storage locations that can be accessed by multiple players (with proper permissions).
+
+### Stash Types
+
+1. **Player Stashes**: Personal storage (houses, apartments)
+2. **Job Stashes**: Shared storage for job members
+3. **Gang Stashes**: Shared storage for gang members
+4. **Public Stashes**: Accessible by anyone
+
+### Stash Properties
+
+```lua
+{
+    identifier = 'house_123',    -- Unique stash ID
+    label = 'House Storage',     -- Display name
+    maxweight = 500000,          -- Max weight (500kg)
+    slots = 50,                  -- Number of slots
+    items = {},                  -- Stored items
+    isOpen = false               -- Access control
+}
+```
+
+### Creating a Stash
+
+```lua
+-- SERVER SIDE
+exports['rsg-inventory']:CreateInventory('house_123', {
+    label = 'House Storage',
+    maxweight = 500000,
+    slots = 50
+})
+```
+
+### Opening a Stash
+
+```lua
+-- SERVER SIDE
+exports['rsg-inventory']:OpenInventory(source, 'house_123', {
+    label = 'House Storage',
+    maxweight = 500000,
+    slots = 50
+})
+```
+
+---
+
+## Shops
+
+The shop system allows players to purchase items from vendors.
+
+### Shop Features
+
+- **Item Pricing**: Each item has a defined price
+- **Stock Management**: Items can have limited or unlimited stock
+- **Job Restrictions**: Shops can be restricted to specific jobs
+- **Gang Restrictions**: Shops can be restricted to specific gangs
+
+### Shop Structure
+
+Shops are defined server-side and opened via exports:
+
+```lua
+-- SERVER SIDE
+local shopItems = {
+    { name = 'bread', price = 5, amount = 50 },
+    { name = 'water', price = 3, amount = 100 },
+    { name = 'bandage', price = 10, amount = 25 }
+}
+
+-- Open shop for player
+exports['rsg-inventory']:OpenShop(source, 'general_store', shopItems)
+```
+
+---
+
+## Database Storage
+
+### Player Inventory
+
+Player inventories are stored in the `players` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS `players` (
+    `citizenid` VARCHAR(50) NOT NULL,
+    `inventory` LONGTEXT DEFAULT '[]',
+    -- ... other columns
+    PRIMARY KEY (`citizenid`)
+);
+```
+
+The `inventory` column stores a JSON array of items.
+
+### Stash Inventory
+
+Stashes are stored in the `inventories` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS `inventories` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `identifier` VARCHAR(50) NOT NULL,
+    `items` LONGTEXT DEFAULT '[]',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `identifier` (`identifier`)
+);
+```
+
+---
+
+## Common Use Cases
+
+### Example 1: Give Player an Item
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+if Player then
+    local canAdd = exports['rsg-inventory']:CanAddItem(source, 'bread', 5)
+    if canAdd then
+        exports['rsg-inventory']:AddItem(source, 'bread', 5, nil, nil, 'shop-purchase')
+        lib.notify({ description = 'You bought 5 bread', type = 'success' })
+    else
+        lib.notify({ description = 'Inventory full!', type = 'error' })
+    end
+end
+```
+
+### Example 2: Remove Item from Player
+
+```lua
+-- SERVER SIDE
+local hasItem = exports['rsg-inventory']:HasItem(source, 'bread', 3)
+if hasItem then
+    exports['rsg-inventory']:RemoveItem(source, 'bread', 3, nil, 'consumed')
+    lib.notify({ description = 'You ate 3 bread', type = 'success' })
+else
+    lib.notify({ description = 'You don\'t have enough bread', type = 'error' })
+end
+```
+
+### Example 3: Check Player's Items
+
+```lua
+-- SERVER SIDE
+local breadCount = exports['rsg-inventory']:GetItemCount(source, 'bread')
+print('Player has '.. breadCount ..' bread')
+
+local breadItem = exports['rsg-inventory']:GetItemByName(source, 'bread')
+if breadItem then
+    print('Bread quality: '.. breadItem.info.quality ..'%')
+    print('In slot: '.. breadItem.slot)
+end
+```
+
+### Example 4: Create House Stash
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('housing:server:openStash', function(houseId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check if player owns house
+    local hasAccess = -- ... your house ownership check
+
+    if hasAccess then
+        local stashId = 'house_'.. houseId
+
+        exports['rsg-inventory']:OpenInventory(src, stashId, {
+            label = 'House #'.. houseId,
+            maxweight = 500000,
+            slots = 50
+        })
+    else
+        lib.notify({ description = 'You don\'t have access!', type = 'error' })
+    end
+end)
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Always check capacity before adding items**: Use `CanAddItem` to prevent errors
+</Tip>
+
+<Warning>
+**Never trust client data**: Always validate on server before modifying inventory
+</Warning>
+
+<Check>
+**Use reasons for logging**: Always provide a reason parameter for auditing
+</Check>
+
+### Performance Considerations
+
+1. **Batch operations when possible**: Don't add items in a loop, accumulate and add once
+2. **Cache item checks**: Don't repeatedly call `HasItem` for the same item
+3. **Clean up stashes**: Remove unused stashes to prevent database bloat
+4. **Optimize drops**: Limit the number of simultaneous drops on the server
+
+---
+
+## Integration with Other Resources
+
+### Creating Useable Items
+
+Items can be made useable in rsg-core:
+
+```lua
+-- SERVER SIDE (in your resource)
+RSGCore.Functions.CreateUseableItem('bread', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    -- Remove the item
+    if exports['rsg-inventory']:RemoveItem(source, 'bread', 1, item.slot, 'consumed') then
+        -- Restore hunger
+        Player.Functions.SetMetaData('hunger', Player.PlayerData.metadata.hunger + 25)
+
+        lib.notify({
+            description = 'You ate bread and feel less hungry',
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Inventory Events
+
+Listen for inventory events in your resources:
+
+```lua
+-- SERVER SIDE
+AddEventHandler('rsg-inventory:server:itemRemovedFromPlayerInventory', function(source, itemName, data, reason, isMove)
+    print('Player '.. source ..' removed '.. itemName)
+    print('Amount: '.. data.amount)
+    print('Reason: '.. reason)
+end)
+```
+
+---
+
+## Troubleshooting
+
+### Inventory Not Saving
+
+<AccordionGroup>
+  <Accordion title="Check database connection" defaultOpen={false}>
+    Ensure oxmysql is properly configured and connected
+  </Accordion>
+
+  <Accordion title="Check for errors" defaultOpen={false}>
+    Look in server console for SQL errors or Lua errors
+  </Accordion>
+
+  <Accordion title="Verify item exists" defaultOpen={false}>
+    Make sure the item is defined in `rsg-core/shared/items.lua`
+  </Accordion>
+</AccordionGroup>
+
+### Items Disappearing
+
+Common causes:
+- Item quality reached 0% (decay)
+- Item not defined in shared items
+- Database not saving properly
+- Server crash before save
+
+### Inventory Full Errors
+
+When inventory is full:
+- Items are automatically dropped on the ground
+- Check ground drops near player
+- Increase player weight/slots if needed
+
+---
+
+## Next Steps
+
+- [Inventory Functions Reference](/inventory/functions) - Complete list of all inventory exports
+- [Weapons System](/inventory/weapons) - Integration with rsg-weapons
+- [Item Configuration](/essentials/shared) - How to define items in rsg-core
+
+---
+
+Need more help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

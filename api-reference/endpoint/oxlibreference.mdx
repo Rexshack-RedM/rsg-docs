@@ -3,83 +3,529 @@ title: "🐮 Overextended Library"
 description: "A standalone library for providing easily reusable code as importable modules and exports."
 ---
 
-# Overextended Library Installation
+## Installation
 
-* To enable the ox_lib library inside of your resource just add @ox_lib/init.lua as a shared_script in your fxmanifest.lua file like below.
-<CodeGroup>
+To enable the ox_lib library inside of your resource, add `@ox_lib/init.lua` as a shared_script in your fxmanifest.lua file:
+
 ```lua fxmanifest.lua
+fx_version 'cerulean'
+game 'rdr3'
+
 shared_scripts {
     '@ox_lib/init.lua',
 }
 ```
-</CodeGroup>
 
-## Building a Overextended Ui 
+<Check>
+Make sure ox_lib is started before any resources that depend on it in your server.cfg!
+</Check>
 
-* Please visit Ox_Libs Docs to understand the ways to do this here https://overextended.dev/ox_lib#building-the-ui
+---
 
-## Menu Registration
+## Building the UI
 
-* To define a menu in RSG, use the lib.registerContext function. This function sets up the menu's structure, including its title, options, and associated actions.
+For advanced UI building with ox_lib, please visit the official documentation:
+- **Ox_Lib Docs**: https://overextended.dev/ox_lib#building-the-ui
+- **UI Components**: https://overextended.dev/ox_lib/Interface/Client/context
+- **Input Dialogs**: https://overextended.dev/ox_lib/Modules/Interface/Client/input
 
-```lua 
+---
+
+## Context Menus
+
+Context menus provide an intuitive way to display multiple options to players.
+
+### Registering a Context Menu
+
+Use `lib.registerContext` to define a menu's structure:
+
+```lua
 lib.registerContext({
-    id = "example_menu",
-    title = "Example Menu",
+    id = 'example_menu',
+    title = 'Example Menu',
     options = {
         {
-            title = "Open Inventory",
-            icon = "fa-solid fa-box",
-            description = "View your inventory items.",
-            event = "inventory:client:open",
+            title = 'Open Inventory',
+            description = 'View your inventory items.',
+            icon = 'fa-solid fa-box',
+            iconColor = '#C53030',
+            event = 'inventory:client:open',
             arrow = true
         },
         {
-            title = "Toggle Duty",
-            icon = "fa-solid fa-shield",
-            event = "job:client:toggleDuty"
+            title = 'Toggle Duty',
+            description = 'Clock in or out of duty',
+            icon = 'fa-solid fa-shield',
+            iconColor = '#48BB78',
+            event = 'job:client:toggleDuty',
+            arrow = true
+        },
+        {
+            title = 'Check Money',
+            description = 'View your current balance',
+            icon = 'fa-solid fa-dollar-sign',
+            iconColor = '#F6E05E',
+            onSelect = function()
+                local PlayerData = RSGCore.Functions.GetPlayerData()
+                local cash = PlayerData.money.cash
+                lib.notify({
+                    title = 'Bank Balance',
+                    description = 'You have $'..cash,
+                    type = 'success'
+                })
+            end
+        },
+        {
+            title = 'Open Sub Menu',
+            description = 'Navigate to another menu',
+            icon = 'fa-solid fa-arrow-right',
+            menu = 'sub_menu_id', -- Opens another registered menu
+            arrow = true
         }
     }
 })
 ```
-# Showing the Menu
-* Once registered, the menu can be displayed using the lib.showContext function.
 
-Syntax:
+### Menu Options Properties
+
+- **title** `string` - The display text for the option
+- **description** `string` (optional) - Additional information shown below the title
+- **icon** `string` (optional) - Font Awesome icon class (e.g., `'fa-solid fa-box'`)
+- **iconColor** `string` (optional) - Hex color for the icon (e.g., `'#C53030'`)
+- **event** `string` (optional) - Client event to trigger when selected
+- **serverEvent** `string` (optional) - Server event to trigger when selected
+- **onSelect** `function` (optional) - Function to execute when selected
+- **args** `any` (optional) - Arguments to pass to the event/function
+- **arrow** `boolean` (optional) - Shows an arrow indicator
+- **menu** `string` (optional) - ID of another menu to open
+- **disabled** `boolean` (optional) - Greys out and disables the option
+- **metadata** `table` (optional) - Additional data displayed on the right side
+
+### Showing a Menu
+
+Display a registered menu using `lib.showContext`:
 
 ```lua
-lib.showContext("unique_menu_id")
+lib.showContext('example_menu')
 ```
 
-# Localization
+### Complete Example
 
-* Text elements such as title and description can use localization functions for multi-language support. Example:
+```lua
+-- Register main menu
+lib.registerContext({
+    id = 'police_menu',
+    title = 'Law Enforcement Menu',
+    options = {
+        {
+            title = 'Check ID',
+            description = 'View citizen identification',
+            icon = 'fa-solid fa-id-card',
+            event = 'police:client:checkId',
+            arrow = true
+        },
+        {
+            title = 'Search Player',
+            description = 'Search nearby citizen',
+            icon = 'fa-solid fa-magnifying-glass',
+            event = 'police:client:searchPlayer',
+            arrow = true
+        },
+        {
+            title = 'Jail Options',
+            description = 'Access jail system',
+            icon = 'fa-solid fa-handcuffs',
+            menu = 'jail_submenu',
+            arrow = true
+        }
+    }
+})
+
+-- Register sub-menu
+lib.registerContext({
+    id = 'jail_submenu',
+    title = 'Jail Menu',
+    menu = 'police_menu', -- Back button returns to this menu
+    options = {
+        {
+            title = 'Send to Jail',
+            icon = 'fa-solid fa-lock',
+            serverEvent = 'police:server:jailPlayer',
+            args = { time = 300 }
+        },
+        {
+            title = 'Release from Jail',
+            icon = 'fa-solid fa-unlock',
+            serverEvent = 'police:server:releasePlayer'
+        }
+    }
+})
+
+-- Show the menu
+lib.showContext('police_menu')
+```
+
+---
 
 ## Notifications
 
-* Custom notifications with a lot of styling options.
+Custom notifications with extensive styling options.
 
-Example:
+### Client-Side Notifications
 
-<CodeGroup>
-  ```lua client.lua
- lib.notify({ title = 'SOME TITLE', type = 'success', icon = 'SOME FAS FA ICON', iconAnimation = 'shake', duration = 7000 })
-  ```
-  ```lua server.lua
-  TriggerClientEvent('ox_lib:notify', src, {title = 'SOME TITLE', type = 'error', icon = 'SOME FAS FA ICON', iconAnimation = 'shake', duration = 7000 })
-  ```
-</CodeGroup>
+```lua
+lib.notify({
+    title = 'Success!',
+    description = 'You have received $500',
+    type = 'success',
+    icon = 'fa-solid fa-dollar-sign',
+    iconColor = '#48BB78',
+    duration = 5000,
+    position = 'top-right'
+})
+```
+
+### Server-Side Notifications
+
+```lua
+TriggerClientEvent('ox_lib:notify', source, {
+    title = 'Error!',
+    description = 'You do not have permission',
+    type = 'error',
+    icon = 'fa-solid fa-triangle-exclamation',
+    iconAnimation = 'shake',
+    duration = 7000
+})
+```
+
+### Notification Properties
+
+- **title** `string` (optional) - The notification title
+- **description** `string` - The main notification message
+- **type** `string` - Type of notification: `'success'`, `'error'`, `'warning'`, `'info'`
+- **icon** `string` (optional) - Font Awesome icon class
+- **iconColor** `string` (optional) - Hex color for the icon
+- **iconAnimation** `string` (optional) - Animation: `'spin'`, `'shake'`, `'beat'`, `'fade'`, `'bounce'`
+- **duration** `number` (optional) - Duration in milliseconds (default: 5000)
+- **position** `string` (optional) - Position: `'top'`, `'top-right'`, `'top-left'`, `'bottom'`, `'bottom-right'`, `'bottom-left'`, `'center-right'`, `'center-left'`
+
+### Notification Types Examples
+
+```lua
+-- Success
+lib.notify({
+    title = 'Item Purchased',
+    description = 'You bought a canteen for $15',
+    type = 'success'
+})
+
+-- Error
+lib.notify({
+    title = 'Purchase Failed',
+    description = 'Not enough money',
+    type = 'error'
+})
+
+-- Warning
+lib.notify({
+    title = 'Low Hunger',
+    description = 'Your hunger is getting low',
+    type = 'warning'
+})
+
+-- Info
+lib.notify({
+    title = 'Server Restart',
+    description = 'Server will restart in 10 minutes',
+    type = 'info'
+})
+```
+
+---
+
+## Input Dialogs
+
+Request user input with customizable forms.
+
+### Basic Input Dialog
+
+```lua
+local input = lib.inputDialog('Horse Name', {
+    { type = 'input', label = 'Horse Name', description = 'Enter a name for your horse', required = true, min = 3, max = 20 }
+})
+
+if input then
+    local horseName = input[1]
+    print('Horse named: ' .. horseName)
+end
+```
+
+### Multi-Field Input
+
+```lua
+local input = lib.inputDialog('Player Report', {
+    {
+        type = 'input',
+        label = 'Player ID',
+        description = 'Enter the player server ID',
+        required = true,
+        icon = 'fa-solid fa-hashtag'
+    },
+    {
+        type = 'select',
+        label = 'Report Type',
+        description = 'Select the type of report',
+        required = true,
+        options = {
+            { value = 'rdm', label = 'Random Deathmatch' },
+            { value = 'vdm', label = 'Vehicle Deathmatch' },
+            { value = 'exploit', label = 'Exploiting' },
+            { value = 'other', label = 'Other' }
+        },
+        icon = 'fa-solid fa-list'
+    },
+    {
+        type = 'textarea',
+        label = 'Description',
+        description = 'Describe what happened',
+        required = true,
+        min = 10,
+        max = 500,
+        icon = 'fa-solid fa-pen'
+    },
+})
+
+if input then
+    local playerId = input[1]
+    local reportType = input[2]
+    local description = input[3]
+
+    TriggerServerEvent('admin:server:createReport', playerId, reportType, description)
+end
+```
+
+### Input Types
+
+**Text Input**:
+```lua
+{ type = 'input', label = 'Name', placeholder = 'John Doe', required = true, min = 3, max = 50 }
+```
+
+**Number Input**:
+```lua
+{ type = 'number', label = 'Amount', placeholder = '100', required = true, min = 1, max = 1000 }
+```
+
+**Select Dropdown**:
+```lua
+{
+    type = 'select',
+    label = 'Choose Option',
+    options = {
+        { value = 'option1', label = 'Option 1' },
+        { value = 'option2', label = 'Option 2' }
+    }
+}
+```
+
+**Multi-Select**:
+```lua
+{
+    type = 'multi-select',
+    label = 'Select Multiple',
+    options = {
+        { value = 'opt1', label = 'Option 1' },
+        { value = 'opt2', label = 'Option 2' },
+        { value = 'opt3', label = 'Option 3' }
+    }
+}
+```
+
+**Checkbox**:
+```lua
+{ type = 'checkbox', label = 'Accept Terms', required = true }
+```
+
+**Textarea**:
+```lua
+{ type = 'textarea', label = 'Long Description', min = 10, max = 500 }
+```
+
+**Date Picker**:
+```lua
+{ type = 'date', label = 'Birth Date', format = 'DD/MM/YYYY' }
+```
+
+**Time Picker**:
+```lua
+{ type = 'time', label = 'Meeting Time', format = '24' }
+```
+
+---
+
+## Progress Bars
+
+Display progress for actions.
+
+### Basic Progress Bar
+
+```lua
+if lib.progressBar({
+    duration = 5000,
+    label = 'Cooking meal...',
+    useWhileDead = false,
+    canCancel = true,
+    disable = {
+        move = true,
+        car = true,
+        combat = true
+    },
+}) then
+    -- Action completed
+    lib.notify({ description = 'Meal cooked!', type = 'success' })
+else
+    -- Action cancelled
+    lib.notify({ description = 'Cooking cancelled', type = 'error' })
+end
+```
+
+### Progress with Animation
+
+```lua
+if lib.progressBar({
+    duration = 3000,
+    label = 'Fishing...',
+    useWhileDead = false,
+    canCancel = true,
+    disable = {
+        move = true,
+    },
+    anim = {
+        dict = 'amb_work@world_human_box_pickup@1@male_a@stand_exit_withprop',
+        clip = 'exit_front'
+    },
+}) then
+    -- Fishing complete
+end
+```
+
+---
+
+## Localization
+
+Text elements support multi-language via locale files.
+
+### Setup Localization
+
+1. Add to fxmanifest.lua:
+```lua
+ox_lib 'locale'
+
+files {
+    'locales/*.json',
+}
+```
+
+2. Create locale files (e.g., `locales/en.json`):
+```json
+{
+    "horse_name": "Horse Name",
+    "horse_desc": "Enter a name for your horse",
+    "purchase_success": "Purchase successful!",
+    "not_enough_money": "You don't have enough money"
+}
+```
+
+3. Use in code:
+```lua
+lib.notify({
+    title = lib.locale('purchase_success'),
+    description = lib.locale('not_enough_money'),
+    type = 'error'
+})
+```
 
 <Info>
-Always try to use language locales! e.g. (MUST HAVE lib.locale() at top of file!!!)
+Always use locales for multi-language support! Make sure to call `lib.locale()` at the top of your script if needed.
 </Info>
 
-<CodeGroup>
-```lua client.lua
-locale('SOMETITLE')
+---
+
+## Alert Dialogs
+
+Simple confirmation dialogs.
+
+```lua
+local alert = lib.alertDialog({
+    header = 'Confirm Purchase',
+    content = 'Are you sure you want to buy this horse for $500?',
+    centered = true,
+    cancel = true,
+    labels = {
+        confirm = 'Buy',
+        cancel = 'Cancel'
+    }
+})
+
+if alert == 'confirm' then
+    -- Player confirmed
+    TriggerServerEvent('horses:server:buyHorse')
+end
 ```
-```js en.json
-"SOMETITLE" : "THIS IS A LOCALE FILE"
+
+---
+
+## Useful Utilities
+
+### Request Model
+
+```lua
+local model = `A_C_Horse_AmericanPaint_Overo`
+lib.requestModel(model, 5000) -- 5 second timeout
+
+-- Use model
+local horse = CreatePed(model, coords.x, coords.y, coords.z, heading, true, false, false, false)
+
+-- Clean up
+SetModelAsNoLongerNeeded(model)
 ```
-</CodeGroup>
+
+### Request Animation Dictionary
+
+```lua
+lib.requestAnimDict('amb_work@world_human_box_pickup@1@male_a@stand_exit_withprop', 5000)
+
+-- Use animation
+TaskPlayAnim(ped, 'amb_work@world_human_box_pickup@1@male_a@stand_exit_withprop', 'exit_front', 8.0, -8.0, -1, 0, 0, false, false, false)
+
+-- Clean up
+RemoveAnimDict('amb_work@world_human_box_pickup@1@male_a@stand_exit_withprop')
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Use context menus for multiple options**: They provide a better UX than command-based systems
+</Tip>
+
+<Warning>
+**Always validate user input**: Never trust client-side input on the server without validation
+</Warning>
+
+<Check>
+**Use locales from the start**: It's easier to add translations early than to retrofit them later
+</Check>
+
+### Performance Tips
+
+1. **Request resources once**: Don't request the same model/animation repeatedly
+2. **Clean up resources**: Always call `SetModelAsNoLongerNeeded` and `RemoveAnimDict`
+3. **Use progress bars for long actions**: Improves player experience
+4. **Cache frequently used data**: Don't query the same data repeatedly
+
+---
+
+For more advanced features, visit the official ox_lib documentation: https://overextended.dev/ox_lib
 

@@ -1,0 +1,1051 @@
+---
+title: "⚙️ Inventory Functions Reference"
+description: "Complete reference for all rsg-inventory exports and functions"
+---
+
+## Introduction
+
+This page documents all server-side exports available from `rsg-inventory`. These functions allow you to interact with player inventories, stashes, and items.
+
+<Warning>
+All inventory functions should be called from the **server-side** only. Client-side inventory manipulation is not supported for security reasons.
+</Warning>
+
+---
+
+## Player Inventory Functions
+
+### Load Inventory
+
+Loads a player's inventory from the database.
+
+```lua
+exports['rsg-inventory']:LoadInventory(source, citizenid)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `citizenid` (string) - Player's citizen ID
+
+**Returns**: `table` - Loaded inventory items
+
+**Example**:
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+local inventory = exports['rsg-inventory']:LoadInventory(source, Player.PlayerData.citizenid)
+
+for slot, item in pairs(inventory) do
+    print('Slot '.. slot ..': '.. item.name ..' x'.. item.amount)
+end
+```
+
+<Info>
+This function is automatically called by rsg-core when a player logs in. You rarely need to call it manually.
+</Info>
+
+---
+
+### Save Inventory
+
+Saves a player's inventory to the database.
+
+```lua
+exports['rsg-inventory']:SaveInventory(source, offline)
+```
+
+**Parameters**:
+- `source` (number|table) - Player's server ID or PlayerData table
+- `offline` (boolean) - If true, source parameter is PlayerData object
+
+**Example**:
+```lua
+-- Save online player
+exports['rsg-inventory']:SaveInventory(source, false)
+
+-- Save offline player
+local Player = RSGCore.Functions.GetOfflinePlayerByCitizenId('ABC12345')
+exports['rsg-inventory']:SaveInventory(Player.PlayerData, true)
+```
+
+<Check>
+Player inventories are auto-saved every 5 minutes by rsg-core. Manual saves are only needed for special cases.
+</Check>
+
+---
+
+### Set Inventory
+
+Sets the entire inventory of a player.
+
+```lua
+exports['rsg-inventory']:SetInventory(source, items)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `items` (table) - Complete items table
+
+**Example**:
+```lua
+local newInventory = {
+    [1] = {
+        name = 'bread',
+        amount = 5,
+        info = { quality = 100 },
+        slot = 1,
+        -- ... other properties
+    },
+    [2] = {
+        name = 'water',
+        amount = 3,
+        info = { quality = 100 },
+        slot = 2,
+    }
+}
+
+exports['rsg-inventory']:SetInventory(source, newInventory)
+```
+
+<Warning>
+This completely replaces the player's inventory. Use with caution!
+</Warning>
+
+---
+
+### Clear Inventory
+
+Clears all items from a player's inventory, with optional filter.
+
+```lua
+exports['rsg-inventory']:ClearInventory(source, filterItems)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `filterItems` (string|table|nil) - Items to keep (optional)
+
+**Example**:
+```lua
+-- Clear entire inventory
+exports['rsg-inventory']:ClearInventory(source)
+
+-- Clear inventory but keep bread
+exports['rsg-inventory']:ClearInventory(source, 'bread')
+
+-- Clear inventory but keep multiple items
+exports['rsg-inventory']:ClearInventory(source, {'bread', 'water', 'bandage'})
+```
+
+<Info>
+This function is commonly used for jail systems or admin commands
+</Info>
+
+---
+
+## Item Management Functions
+
+### Add Item
+
+Adds an item to a player's inventory or another inventory.
+
+```lua
+exports['rsg-inventory']:AddItem(identifier, item, amount, slot, info, reason)
+```
+
+**Parameters**:
+- `identifier` (number|string) - Player source, stash ID, or drop ID
+- `item` (string) - Item name
+- `amount` (number) - Quantity to add
+- `slot` (number|nil) - Specific slot (optional, auto-finds if nil)
+- `info` (table|nil) - Item metadata (optional)
+- `reason` (string|nil) - Reason for logging (optional)
+
+**Returns**: `boolean` - True if successful, false if failed
+
+**Example**:
+```lua
+-- Basic usage
+local success = exports['rsg-inventory']:AddItem(source, 'bread', 5, nil, nil, 'shop-purchase')
+
+if success then
+    lib.notify({ description = 'Added 5 bread', type = 'success' })
+else
+    lib.notify({ description = 'Failed to add item', type = 'error' })
+end
+
+-- Add item with custom info
+local success = exports['rsg-inventory']:AddItem(source, 'water', 1, nil, { quality = 100, temperature = 'cold' }, 'found')
+
+-- Add weapon with serial
+local weaponInfo = {
+    serie = 'ABC12XYZ34',
+    quality = 100,
+    ammo = 6
+}
+exports['rsg-inventory']:AddItem(source, 'weapon_revolver_cattleman', 1, nil, weaponInfo, 'purchase')
+```
+
+<Check>
+If inventory is full, the item will automatically be dropped on the ground near the player!
+</Check>
+
+---
+
+### Remove Item
+
+Removes an item from a player's inventory.
+
+```lua
+exports['rsg-inventory']:RemoveItem(identifier, item, amount, slot, reason, isMove)
+```
+
+**Parameters**:
+- `identifier` (number|string) - Player source, stash ID, or drop ID
+- `item` (string) - Item name
+- `amount` (number) - Quantity to remove
+- `slot` (number|nil) - Specific slot (optional, removes from any if nil)
+- `reason` (string|nil) - Reason for logging (optional)
+- `isMove` (boolean|nil) - Internal flag for item moves (optional)
+
+**Returns**: `boolean` - True if successful, false if failed
+
+**Example**:
+```lua
+-- Remove from any slot
+local success = exports['rsg-inventory']:RemoveItem(source, 'bread', 3, nil, 'consumed')
+
+if success then
+    lib.notify({ description = 'Removed 3 bread', type = 'success' })
+else
+    lib.notify({ description = 'You don\'t have enough bread', type = 'error' })
+end
+
+-- Remove from specific slot
+local item = exports['rsg-inventory']:GetItemBySlot(source, 5)
+if item and item.name == 'bread' then
+    exports['rsg-inventory']:RemoveItem(source, 'bread', 1, 5, 'ate-specific-bread')
+end
+```
+
+---
+
+### Has Item
+
+Checks if a player has a specific item or items.
+
+```lua
+exports['rsg-inventory']:HasItem(source, items, amount)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `items` (string|table) - Item name or array of items
+- `amount` (number|nil) - Required amount (optional)
+
+**Returns**: `boolean` - True if player has the item(s)
+
+**Example**:
+```lua
+-- Check for single item
+if exports['rsg-inventory']:HasItem(source, 'bread') then
+    print('Player has bread')
+end
+
+-- Check for specific amount
+if exports['rsg-inventory']:HasItem(source, 'bread', 5) then
+    print('Player has at least 5 bread')
+end
+
+-- Check for multiple items (AND condition)
+if exports['rsg-inventory']:HasItem(source, {'bread', 'water', 'bandage'}) then
+    print('Player has all three items')
+end
+
+-- Check for specific amounts of multiple items
+local requiredItems = {
+    bread = 3,
+    water = 2
+}
+if exports['rsg-inventory']:HasItem(source, requiredItems) then
+    print('Player has 3 bread AND 2 water')
+end
+```
+
+<Info>
+When checking multiple items, ALL items must be present for the function to return true
+</Info>
+
+---
+
+### Get Item Count
+
+Gets the total count of a specific item or items.
+
+```lua
+exports['rsg-inventory']:GetItemCount(source, items)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `items` (string|table) - Item name or array of item names
+
+**Returns**: `number` - Total count of items
+
+**Example**:
+```lua
+-- Get count of single item
+local breadCount = exports['rsg-inventory']:GetItemCount(source, 'bread')
+print('Player has '.. breadCount ..' bread')
+
+-- Get combined count of multiple items
+local foodCount = exports['rsg-inventory']:GetItemCount(source, {'bread', 'meat', 'cheese'})
+print('Player has '.. foodCount ..' total food items')
+```
+
+---
+
+### Get Item By Name
+
+Gets the first item with a specific name from inventory.
+
+```lua
+exports['rsg-inventory']:GetItemByName(source, item)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `item` (string) - Item name
+
+**Returns**: `table|nil` - Item data or nil
+
+**Example**:
+```lua
+local breadItem = exports['rsg-inventory']:GetItemByName(source, 'bread')
+
+if breadItem then
+    print('Bread in slot: '.. breadItem.slot)
+    print('Amount: '.. breadItem.amount)
+    print('Quality: '.. breadItem.info.quality)
+else
+    print('Player doesn\'t have bread')
+end
+```
+
+---
+
+### Get Items By Name
+
+Gets all items with a specific name from inventory.
+
+```lua
+exports['rsg-inventory']:GetItemsByName(source, item)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `item` (string) - Item name
+
+**Returns**: `table` - Array of item data
+
+**Example**:
+```lua
+local weapons = exports['rsg-inventory']:GetItemsByName(source, 'weapon_revolver_cattleman')
+
+for i = 1, #weapons do
+    print('Weapon '.. i ..' serial: '.. weapons[i].info.serie)
+    print('  Quality: '.. weapons[i].info.quality)
+    print('  Slot: '.. weapons[i].slot)
+end
+```
+
+<Info>
+Useful for unique items like weapons where a player might have multiple
+</Info>
+
+---
+
+### Get Item By Slot
+
+Gets an item from a specific slot.
+
+```lua
+exports['rsg-inventory']:GetItemBySlot(source, slot)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `slot` (number) - Slot number
+
+**Returns**: `table|nil` - Item data or nil
+
+**Example**:
+```lua
+local item = exports['rsg-inventory']:GetItemBySlot(source, 5)
+
+if item then
+    print('Slot 5 contains: '.. item.name)
+    print('Amount: '.. item.amount)
+else
+    print('Slot 5 is empty')
+end
+```
+
+---
+
+### Set Item Data
+
+Sets a specific key-value pair in an item's data.
+
+```lua
+exports['rsg-inventory']:SetItemData(source, itemName, key, val)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `itemName` (string) - Item name
+- `key` (string) - Data key to set
+- `val` (any) - Value to set
+
+**Returns**: `boolean` - True if successful
+
+**Example**:
+```lua
+-- Update item label
+exports['rsg-inventory']:SetItemData(source, 'bread', 'label', 'Stale Bread')
+
+-- Update item info
+exports['rsg-inventory']:SetItemData(source, 'water', 'info', { quality = 50, temperature = 'warm' })
+
+-- Update weapon quality
+exports['rsg-inventory']:SetItemData(source, 'weapon_revolver_cattleman', 'info', {
+    serie = 'ABC123',
+    quality = 75,
+    ammo = 4
+})
+```
+
+---
+
+## Slot & Weight Functions
+
+### Get Slots
+
+Gets the number of used and free slots for an inventory.
+
+```lua
+exports['rsg-inventory']:GetSlots(identifier)
+```
+
+**Parameters**:
+- `identifier` (number|string) - Player source, stash ID, or drop ID
+
+**Returns**: `number, number` - Used slots, Free slots
+
+**Example**:
+```lua
+local slotsUsed, slotsFree = exports['rsg-inventory']:GetSlots(source)
+
+print('Used: '.. slotsUsed ..' slots')
+print('Free: '.. slotsFree ..' slots')
+
+if slotsFree == 0 then
+    lib.notify({ description = 'Inventory full!', type = 'error' })
+end
+```
+
+---
+
+### Get Slots By Item
+
+Gets all slot numbers that contain a specific item.
+
+```lua
+exports['rsg-inventory']:GetSlotsByItem(items, itemName)
+```
+
+**Parameters**:
+- `items` (table) - Items table (PlayerData.items)
+- `itemName` (string) - Item name to search for
+
+**Returns**: `table` - Array of slot numbers
+
+**Example**:
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+local breadSlots = exports['rsg-inventory']:GetSlotsByItem(Player.PlayerData.items, 'bread')
+
+for i = 1, #breadSlots do
+    print('Bread found in slot: '.. breadSlots[i])
+end
+```
+
+---
+
+### Get First Slot By Item
+
+Gets the first slot number containing a specific item.
+
+```lua
+exports['rsg-inventory']:GetFirstSlotByItem(items, itemName)
+```
+
+**Parameters**:
+- `items` (table) - Items table (PlayerData.items)
+- `itemName` (string) - Item name
+
+**Returns**: `number|nil` - Slot number or nil
+
+**Example**:
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+local slot = exports['rsg-inventory']:GetFirstSlotByItem(Player.PlayerData.items, 'bread')
+
+if slot then
+    print('First bread found in slot: '.. slot)
+    local item = Player.PlayerData.items[slot]
+    print('Amount in that slot: '.. item.amount)
+end
+```
+
+---
+
+### Get Total Weight
+
+Gets the total weight of all items in an inventory.
+
+```lua
+exports['rsg-inventory']:GetTotalWeight(items)
+```
+
+**Parameters**:
+- `items` (table) - Items table
+
+**Returns**: `number` - Total weight in grams
+
+**Example**:
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+local totalWeight = exports['rsg-inventory']:GetTotalWeight(Player.PlayerData.items)
+local maxWeight = Player.PlayerData.weight
+
+print('Total weight: '.. totalWeight ..'g / '.. maxWeight ..'g')
+print('Weight used: '.. math.floor((totalWeight / maxWeight) * 100) ..'%')
+```
+
+---
+
+### Get Free Weight
+
+Gets the available weight capacity for a player.
+
+```lua
+exports['rsg-inventory']:GetFreeWeight(source)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+
+**Returns**: `number` - Free weight in grams
+
+**Example**:
+```lua
+local freeWeight = exports['rsg-inventory']:GetFreeWeight(source)
+
+if freeWeight < 1000 then
+    lib.notify({ description = 'Inventory almost full!', type = 'warning' })
+end
+
+print('Player can carry '.. (freeWeight / 1000) ..'kg more')
+```
+
+---
+
+### Get Item Weight
+
+Gets the weight of a specific item from the item definition.
+
+```lua
+exports['rsg-inventory']:GetItemWeight(itemName)
+```
+
+**Parameters**:
+- `itemName` (string) - Item name
+
+**Returns**: `number|nil` - Item weight or nil
+
+**Example**:
+```lua
+local breadWeight = exports['rsg-inventory']:GetItemWeight('bread')
+print('Each bread weighs: '.. breadWeight ..'g')
+
+local totalWeight = breadWeight * 10
+print('10 bread would weigh: '.. totalWeight ..'g')
+```
+
+---
+
+### Can Add Item
+
+Checks if an item can be added to an inventory.
+
+```lua
+exports['rsg-inventory']:CanAddItem(source, item, amount)
+```
+
+**Parameters**:
+- `source` (number|string) - Player source or stash ID
+- `item` (string) - Item name
+- `amount` (number) - Quantity
+
+**Returns**: `boolean, string|nil` - Can add, Reason if false
+
+**Example**:
+```lua
+local canAdd, reason = exports['rsg-inventory']:CanAddItem(source, 'bread', 10)
+
+if canAdd then
+    exports['rsg-inventory']:AddItem(source, 'bread', 10, nil, nil, 'bakery')
+else
+    if reason == 'weight' then
+        lib.notify({ description = 'Too heavy!', type = 'error' })
+    elseif reason == 'slots' then
+        lib.notify({ description = 'No free slots!', type = 'error' })
+    end
+end
+```
+
+<Check>
+Always check before adding items to provide proper feedback to players!
+</Check>
+
+---
+
+## Stash Functions
+
+### Open Inventory
+
+Opens an inventory (player, stash, or drop) for a player.
+
+```lua
+exports['rsg-inventory']:OpenInventory(source, identifier, data)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `identifier` (string|nil) - Stash/drop ID (nil for player inventory)
+- `data` (table|nil) - Stash configuration (optional)
+
+**Data Table**:
+```lua
+{
+    label = 'Stash Name',    -- Display name
+    maxweight = 500000,      -- Max weight in grams
+    slots = 50               -- Number of slots
+}
+```
+
+**Example**:
+```lua
+-- Open player's own inventory
+exports['rsg-inventory']:OpenInventory(source)
+
+-- Open a stash
+exports['rsg-inventory']:OpenInventory(source, 'house_123', {
+    label = 'House Storage',
+    maxweight = 500000,
+    slots = 50
+})
+
+-- Open gang stash
+local Player = RSGCore.Functions.GetPlayer(source)
+local gangName = Player.PlayerData.gang.name
+
+if gangName ~= 'none' then
+    exports['rsg-inventory']:OpenInventory(source, 'gang_'.. gangName, {
+        label = 'Gang Stash',
+        maxweight = 1000000,
+        slots = 100
+    })
+end
+```
+
+---
+
+### Close Inventory
+
+Closes an open inventory for a player.
+
+```lua
+exports['rsg-inventory']:CloseInventory(source, identifier)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `identifier` (string|nil) - Stash/drop ID (optional)
+
+**Example**:
+```lua
+exports['rsg-inventory']:CloseInventory(source)
+
+-- Close specific stash
+exports['rsg-inventory']:CloseInventory(source, 'house_123')
+```
+
+---
+
+### Open Inventory By ID
+
+Opens another player's inventory (for searching/robbing).
+
+```lua
+exports['rsg-inventory']:OpenInventoryById(source, targetId)
+```
+
+**Parameters**:
+- `source` (number) - Viewer's server ID
+- `targetId` (number) - Target player's server ID
+
+**Example**:
+```lua
+RegisterNetEvent('police:server:searchPlayer', function(targetId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    if Player.PlayerData.job.name == 'vallaw' then
+        exports['rsg-inventory']:OpenInventoryById(src, targetId)
+    else
+        lib.notify({ description = 'You are not law enforcement', type = 'error' })
+    end
+end)
+```
+
+---
+
+### Create Inventory
+
+Creates or updates a stash inventory.
+
+```lua
+exports['rsg-inventory']:CreateInventory(identifier, data)
+```
+
+**Parameters**:
+- `identifier` (string) - Unique stash ID
+- `data` (table) - Stash configuration
+
+**Example**:
+```lua
+-- Create house stash
+exports['rsg-inventory']:CreateInventory('house_'.. houseId, {
+    label = 'House #'.. houseId,
+    maxweight = 500000,
+    slots = 50
+})
+
+-- Update existing stash
+exports['rsg-inventory']:CreateInventory('gang_odriscoll', {
+    label = 'O\'Driscoll Gang Hideout',
+    maxweight = 2000000,
+    slots = 150
+})
+```
+
+---
+
+### Delete Inventory
+
+Deletes a stash inventory from memory.
+
+```lua
+exports['rsg-inventory']:DeleteInventory(identifier)
+```
+
+**Parameters**:
+- `identifier` (string) - Stash ID
+
+**Returns**: `boolean` - True if deleted
+
+**Example**:
+```lua
+-- Delete house stash when house is sold
+local deleted = exports['rsg-inventory']:DeleteInventory('house_123')
+
+if deleted then
+    print('House stash deleted')
+end
+```
+
+<Warning>
+This only removes from memory, not the database! Use ClearStash to empty it.
+</Warning>
+
+---
+
+### Clear Stash
+
+Clears all items from a stash and updates the database.
+
+```lua
+exports['rsg-inventory']:ClearStash(identifier)
+```
+
+**Parameters**:
+- `identifier` (string) - Stash ID
+
+**Example**:
+```lua
+-- Clear gang stash
+exports['rsg-inventory']:ClearStash('gang_odriscoll')
+
+-- Clear house storage
+exports['rsg-inventory']:ClearStash('house_'.. houseId)
+```
+
+---
+
+### Save Stash
+
+Manually saves a stash to the database.
+
+```lua
+exports['rsg-inventory']:SaveStash(identifier)
+```
+
+**Parameters**:
+- `identifier` (string) - Stash ID
+
+**Example**:
+```lua
+-- Save gang stash after modifications
+exports['rsg-inventory']:SaveStash('gang_odriscoll')
+```
+
+<Info>
+Stashes are automatically saved when closed. Manual save is rarely needed.
+</Info>
+
+---
+
+### Get Inventory
+
+Gets a stash inventory data.
+
+```lua
+exports['rsg-inventory']:GetInventory(identifier)
+```
+
+**Parameters**:
+- `identifier` (string) - Stash ID
+
+**Returns**: `table|nil` - Inventory data or nil
+
+**Example**:
+```lua
+local stash = exports['rsg-inventory']:GetInventory('gang_odriscoll')
+
+if stash then
+    print('Stash label: '.. stash.label)
+    print('Max weight: '.. stash.maxweight)
+    print('Slots: '.. stash.slots)
+    print('Items: '.. #stash.items)
+end
+```
+
+---
+
+## Utility Functions
+
+### Use Item
+
+Triggers the usage of an item (calls the useable item callback).
+
+```lua
+exports['rsg-inventory']:UseItem(itemName, ...)
+```
+
+**Parameters**:
+- `itemName` (string) - Item name
+- `...` - Additional arguments passed to callback
+
+**Example**:
+```lua
+-- Typically called internally, but can be triggered manually
+exports['rsg-inventory']:UseItem('bread', source, itemData)
+```
+
+---
+
+### Force Drop Item
+
+Forces an item to be dropped on the ground (used when inventory is full).
+
+```lua
+exports['rsg-inventory']:ForceDropItem(source, item, amount, info, reason)
+```
+
+**Parameters**:
+- `source` (number) - Player's server ID
+- `item` (string) - Item name
+- `amount` (number) - Quantity
+- `info` (table) - Item metadata
+- `reason` (string) - Reason for logging
+
+**Returns**: `number|boolean` - Network ID of drop or false
+
+**Example**:
+```lua
+-- This is called automatically by AddItem when inventory is full
+-- Manual use case:
+local dropId = exports['rsg-inventory']:ForceDropItem(source, 'bread', 5, { quality = 100 }, 'overflow')
+
+if dropId then
+    lib.notify({ description = 'Item dropped on ground', type = 'warning' })
+end
+```
+
+---
+
+## Complete Examples
+
+### Example 1: Crafting System
+
+```lua
+RegisterNetEvent('crafting:server:craftItem', function(recipe)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check player has required items
+    for _, ingredient in pairs(recipe.required) do
+        if not exports['rsg-inventory']:HasItem(src, ingredient.item, ingredient.amount) then
+            lib.notify({ description = 'Missing '.. ingredient.item, type = 'error' })
+            return
+        end
+    end
+
+    -- Check if player can add result
+    local canAdd = exports['rsg-inventory']:CanAddItem(src, recipe.result, recipe.amount)
+    if not canAdd then
+        lib.notify({ description = 'Inventory full!', type = 'error' })
+        return
+    end
+
+    -- Remove ingredients
+    for _, ingredient in pairs(recipe.required) do
+        exports['rsg-inventory']:RemoveItem(src, ingredient.item, ingredient.amount, nil, 'crafting')
+    end
+
+    -- Add result
+    exports['rsg-inventory']:AddItem(src, recipe.result, recipe.amount, nil, nil, 'crafted')
+
+    lib.notify({ description = 'Crafted '.. recipe.result, type = 'success' })
+end)
+```
+
+### Example 2: Shop System
+
+```lua
+RegisterNetEvent('shop:server:purchase', function(itemName, amount, price)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local totalPrice = price * amount
+
+    -- Check money
+    if Player.Functions.GetMoney('cash') < totalPrice then
+        lib.notify({ description = 'Not enough money!', type = 'error' })
+        return
+    end
+
+    -- Check can add item
+    local canAdd = exports['rsg-inventory']:CanAddItem(src, itemName, amount)
+    if not canAdd then
+        lib.notify({ description = 'Cannot carry that much!', type = 'error' })
+        return
+    end
+
+    -- Process purchase
+    if Player.Functions.RemoveMoney('cash', totalPrice, 'shop-purchase') then
+        exports['rsg-inventory']:AddItem(src, itemName, amount, nil, nil, 'shop-purchase')
+        lib.notify({ description = 'Purchased '.. amount ..'x '.. itemName, type = 'success' })
+    end
+end)
+```
+
+### Example 3: Gang Stash with Logs
+
+```lua
+RegisterNetEvent('gang:server:openStash', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local gang = Player.PlayerData.gang
+    if gang.name == 'none' then
+        lib.notify({ description = 'You are not in a gang', type = 'error' })
+        return
+    end
+
+    local stashId = 'gang_'.. gang.name
+
+    -- Create/open stash
+    exports['rsg-inventory']:OpenInventory(src, stashId, {
+        label = gang.label ..' Stash',
+        maxweight = 1000000,
+        slots = 100
+    })
+
+    -- Log access
+    TriggerEvent('rsg-log:server:CreateLog', 'gangstash', 'Stash Accessed', 'blue',
+        string.format('**%s** (citizenid: %s) accessed **%s** stash',
+            GetPlayerName(src), Player.PlayerData.citizenid, gang.label))
+end)
+```
+
+---
+
+## Best Practices Summary
+
+<Tip>
+**Check before modifying**: Always use HasItem, CanAddItem before operations
+</Tip>
+
+<Warning>
+**Server-side only**: Never attempt inventory operations on client
+</Warning>
+
+<Check>
+**Provide reasons**: Always include reason parameter for audit logs
+</Check>
+
+### Common Patterns
+
+1. **Always validate before actions**:
+```lua
+if not exports['rsg-inventory']:HasItem(src, 'item') then return end
+```
+
+2. **Check capacity before adding**:
+```lua
+if not exports['rsg-inventory']:CanAddItem(src, 'item', amount) then return end
+```
+
+3. **Handle failures gracefully**:
+```lua
+if not exports['rsg-inventory']:RemoveItem(src, 'item', 1) then
+    -- Item not found, refund or notify
+end
+```
+
+4. **Use proper logging**:
+```lua
+exports['rsg-inventory']:AddItem(src, 'item', 1, nil, nil, 'reward-for-quest-completion')
+```
+
+---
+
+For more information, see:
+- [Inventory Overview](/inventory/overview)
+- [Weapons System](/inventory/weapons)
+- [RSG Core Functions](/api-reference/endpoint/serverfunctionreference)

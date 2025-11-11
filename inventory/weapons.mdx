@@ -1,0 +1,670 @@
+---
+title: "⚔️ Weapons System"
+description: "Complete guide to rsg-weapons and weapon management"
+---
+
+## Introduction
+
+The RSG Weapons system (`rsg-weapons`) manages weapon durability, damage, repairs, and ammunition in the RSG Framework. It works seamlessly with `rsg-inventory` to provide a realistic weapon experience.
+
+**Version**: 2.1.4
+
+<Check>
+rsg-weapons is tightly integrated with rsg-inventory. Weapons are stored as inventory items with type `'weapon'`.
+</Check>
+
+---
+
+## Core Features
+
+### 🔧 Weapon Durability
+- Weapons degrade with use (each shot reduces quality)
+- Quality ranges from 0-100%
+- Weapons at 0% quality become unusable
+- Can be repaired using weapon repair kits
+
+### 💥 Custom Weapon Damage
+- Each weapon has configurable damage multipliers
+- Separate from native RedM damage values
+- Critical hits can be disabled server-wide
+
+### 🔫 Weapon Components
+- Toggle system for weapon components/attachments
+- Supports custom weapon loading
+
+### 🛠️ Repair System
+- Useable repair kits restore weapon quality to 100%
+- Repair time configurable (default: 30 seconds)
+
+---
+
+## How Weapons Work
+
+### Weapon as Inventory Item
+
+Weapons are stored in the inventory system with special properties:
+
+```lua
+{
+    name = 'weapon_revolver_cattleman',
+    label = 'Cattleman Revolver',
+    amount = 1,
+    type = 'weapon',               -- Must be 'weapon' type
+    slot = 1,
+    weight = 2000,
+    unique = true,                 -- Each weapon takes its own slot
+    useable = false,
+    image = 'weapon_revolver_cattleman.png',
+    info = {
+        serie = 'ABC12XYZ34DEF56',  -- Unique serial number
+        quality = 100,               -- Weapon condition (0-100)
+        ammo = 6                     -- Current ammo loaded
+    }
+}
+```
+
+<Info>
+Every weapon gets a unique serial number automatically when added to inventory. This allows tracking and differentiating between identical weapons.
+</Info>
+
+---
+
+## Configuration
+
+### Weapon Degradation Settings
+
+Located in `config.lua`:
+
+```lua
+Config.DegradeRate = 0.01         -- Quality lost per shot
+Config.UpdateDegrade = 5000       -- Update interval in ms
+```
+
+**Example Degradation**:
+- Revolver with 6 shots = 0.06 quality lost per full cylinder
+- Takes approximately 1,667 shots to degrade from 100% to 0%
+
+<Warning>
+Lower degrade rates = longer weapon lifespan. Balance this with your server's economy!
+</Warning>
+
+---
+
+### Repair Time
+
+```lua
+Config.RepairTime = 30000  -- 30 seconds
+```
+
+Time it takes to repair a weapon using a repair kit.
+
+---
+
+### Weapon Components
+
+```lua
+Config.WeaponComponents = true  -- Enable/disable weapon components
+```
+
+When `false`, players can use the `/loadweapon` command to equip weapons.
+
+---
+
+### Weapon Damage
+
+Each weapon has a damage multiplier:
+
+```lua
+Config.WeaponDamage = {
+    -- Revolvers
+    {Name = 'WEAPON_REVOLVER_CATTLEMAN', Damage = 1.0},
+    {Name = 'WEAPON_REVOLVER_SCHOFIELD', Damage = 1.0},
+    {Name = 'WEAPON_REVOLVER_NAVY', Damage = 1.0},
+
+    -- Pistols
+    {Name = 'WEAPON_PISTOL_M1899', Damage = 1.0},
+    {Name = 'WEAPON_PISTOL_MAUSER', Damage = 1.0},
+
+    -- Rifles
+    {Name = 'WEAPON_RIFLE_SPRINGFIELD', Damage = 1.0},
+    {Name = 'WEAPON_RIFLE_BOLTACTION', Damage = 1.0},
+
+    -- Shotguns
+    {Name = 'WEAPON_SHOTGUN_PUMP', Damage = 1.0},
+    {Name = 'WEAPON_SHOTGUN_DOUBLEBARREL', Damage = 1.0},
+}
+```
+
+- `1.0` = Normal damage
+- `1.5` = 50% more damage
+- `0.5` = 50% less damage
+
+### Disable Critical Hits
+
+```lua
+Config.DisableCriticalHits = false  -- Set to true to disable crits
+```
+
+---
+
+## Weapon Degradation System
+
+### How It Works
+
+1. **Player fires weapon**
+2. **Client tracks shots** in a degradation queue
+3. **Queue sent to server** periodically (every 5 seconds)
+4. **Server updates weapon quality** based on shots fired
+
+```lua
+-- Example degradation calculation
+local shotCount = 10                      -- Player fired 10 shots
+local degradation = Config.DegradeRate * shotCount  -- 0.01 * 10 = 0.1
+local currentQuality = 95.5               -- Current weapon quality
+local newQuality = currentQuality - degradation     -- 95.5 - 0.1 = 95.4
+```
+
+### Quality Breakpoints
+
+- **100-75%**: Excellent Condition (Green)
+- **74-50%**: Good Condition (Yellow)
+- **49-25%**: Poor Condition (Orange)
+- **24-1%**: Very Poor Condition (Red)
+- **0%**: Broken - Weapon Unusable
+
+<Warning>
+When a weapon reaches 0% quality, it becomes unusable but remains in inventory. Players must repair it to use it again.
+</Warning>
+
+---
+
+## Weapon Repair System
+
+### Using Repair Kits
+
+Players can repair weapons using the `weapon_repair_kit` item:
+
+1. Player uses repair kit from inventory
+2. Player selects which weapon to repair
+3. Progress bar shows repair in progress
+4. Weapon quality restored to 100%
+5. Repair kit consumed
+
+### Item Definition
+
+In `rsg-core/shared/items.lua`:
+
+```lua
+['weapon_repair_kit'] = {
+    name = 'weapon_repair_kit',
+    label = 'Weapon Repair Kit',
+    weight = 500,
+    type = 'item',
+    image = 'weapon_repair_kit.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    combinable = nil,
+    description = 'Used to repair weapons'
+},
+```
+
+### Server-Side Repair
+
+```lua
+-- Triggered automatically when player uses repair kit
+RegisterNetEvent('rsg-weapons:server:repairweapon', function(serie)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+
+    for _, v in pairs(Player.PlayerData.items) do
+        if v.type == 'weapon' and v.info.serie == serie then
+            -- Restore weapon to 100%
+            Player.PlayerData.items[v.slot].info.quality = 100
+            break
+        end
+    end
+
+    Player.Functions.SetInventory(Player.PlayerData.items)
+end)
+```
+
+---
+
+## Weapon Information System
+
+### Get Weapon Info by Serial
+
+```lua
+RSGCore.Functions.CreateCallback('rsg-weapons:server:getweaponinfo', function(source, cb, weaponserial)
+    local weaponinfo = MySQL.query.await('SELECT * FROM player_weapons WHERE serial=@weaponserial', {
+        ['@weaponserial'] = weaponserial
+    })
+    if weaponinfo[1] == nil then return end
+    cb(weaponinfo)
+end)
+```
+
+**Usage**:
+```lua
+-- CLIENT SIDE
+RSGCore.Functions.TriggerCallback('rsg-weapons:server:getweaponinfo', function(weaponData)
+    if weaponData then
+        print('Weapon Serial: '.. weaponData[1].serial)
+        print('Weapon Owner: '.. weaponData[1].citizenid)
+    end
+end, weaponSerial)
+```
+
+---
+
+## Admin Commands
+
+### Infinite Ammo
+
+Admins can toggle infinite ammo:
+
+```lua
+-- Command: /infinityammo (admin only)
+
+RegisterNetEvent('rsg-weapons:requestToggle', function()
+    local src = source
+    if RSGCore.Functions.HasPermission(src, 'admin') then
+        TriggerClientEvent('rsg-weapons:toggle', src)
+    else
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Infinity Ammo',
+            description = 'You do not have permission to use this command.',
+            type = 'error'
+        })
+    end
+end)
+```
+
+---
+
+## Integration with Inventory
+
+### Adding Weapons to Inventory
+
+When adding weapons, a serial number is automatically generated:
+
+```lua
+-- SERVER SIDE
+local weaponInfo = {
+    serie = tostring(
+        RSGCore.Shared.RandomInt(2) ..
+        RSGCore.Shared.RandomStr(3) ..
+        RSGCore.Shared.RandomInt(1) ..
+        RSGCore.Shared.RandomStr(2) ..
+        RSGCore.Shared.RandomInt(3) ..
+        RSGCore.Shared.RandomStr(4)
+    ),
+    quality = 100,
+    ammo = 0
+}
+
+exports['rsg-inventory']:AddItem(source, 'weapon_revolver_cattleman', 1, nil, weaponInfo, 'shop-purchase')
+```
+
+<Check>
+Serial numbers are automatically generated by rsg-inventory when adding weapon-type items!
+</Check>
+
+---
+
+### Removing Weapons
+
+When removing weapons, use the weapon's serial to target specific weapons:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+local weapon = nil
+
+for _, item in pairs(Player.PlayerData.items) do
+    if item.type == 'weapon' and item.info.serie == targetSerial then
+        weapon = item
+        break
+    end
+end
+
+if weapon then
+    exports['rsg-inventory']:RemoveItem(source, weapon.name, 1, weapon.slot, 'confiscated')
+end
+```
+
+---
+
+## Database Structure
+
+### player_weapons Table
+
+```sql
+CREATE TABLE IF NOT EXISTS `player_weapons` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `citizenid` VARCHAR(50) DEFAULT NULL,
+    `serial` VARCHAR(50) DEFAULT NULL,
+    `weapon` VARCHAR(50) DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `serial` (`serial`)
+);
+```
+
+<Info>
+This table is used for tracking weapon ownership history and can be used for law enforcement RP.
+</Info>
+
+---
+
+## Practical Examples
+
+### Example 1: Give Player a Weapon
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('gunstore:server:purchaseWeapon', function(weaponName, price)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check money
+    if Player.Functions.GetMoney('cash') < price then
+        lib.notify({ description = 'Not enough money', type = 'error' })
+        return
+    end
+
+    -- Check inventory space
+    local canAdd = exports['rsg-inventory']:CanAddItem(src, weaponName, 1)
+    if not canAdd then
+        lib.notify({ description = 'Cannot carry more weapons', type = 'error' })
+        return
+    end
+
+    -- Process purchase
+    if Player.Functions.RemoveMoney('cash', price, 'weapon-purchase') then
+        local weaponInfo = {
+            quality = 100,
+            ammo = 0
+            -- Serial is auto-generated
+        }
+
+        exports['rsg-inventory']:AddItem(src, weaponName, 1, nil, weaponInfo, 'gunstore-purchase')
+
+        lib.notify({ description = 'Weapon purchased!', type = 'success' })
+    end
+end)
+```
+
+---
+
+### Example 2: Confiscate Weapons
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('police:server:confiscateWeapons', function(targetId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Player or not Target then return end
+
+    -- Check if law enforcement
+    if Player.PlayerData.job.type ~= 'leo' then
+        lib.notify({ description = 'You are not law enforcement', type = 'error' })
+        return
+    end
+
+    -- Get all weapons from target
+    local weapons = {}
+    for _, item in pairs(Target.PlayerData.items) do
+        if item.type == 'weapon' then
+            weapons[#weapons + 1] = item
+        end
+    end
+
+    if #weapons == 0 then
+        lib.notify({ description = 'No weapons found', type = 'error' })
+        return
+    end
+
+    -- Remove all weapons
+    for i = 1, #weapons do
+        exports['rsg-inventory']:RemoveItem(targetId, weapons[i].name, 1, weapons[i].slot, 'confiscated-by-law')
+    end
+
+    -- Notify
+    TriggerClientEvent('ox_lib:notify', targetId, {
+        description = 'Your weapons have been confiscated',
+        type = 'error'
+    })
+
+    lib.notify({ description = 'Confiscated '.. #weapons ..' weapons', type = 'success' })
+
+    -- Log
+    TriggerEvent('rsg-log:server:CreateLog', 'weapons', 'Weapons Confiscated', 'red',
+        string.format('**%s** confiscated %d weapons from **%s**',
+            GetPlayerName(src), #weapons, GetPlayerName(targetId)))
+end)
+```
+
+---
+
+### Example 3: Weapon Damage Check
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('weapons:server:checkDurability', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local weapons = {}
+    for _, item in pairs(Player.PlayerData.items) do
+        if item.type == 'weapon' then
+            weapons[#weapons + 1] = {
+                name = item.label,
+                quality = item.info.quality,
+                serial = item.info.serie
+            }
+        end
+    end
+
+    if #weapons == 0 then
+        lib.notify({ description = 'You have no weapons', type = 'error' })
+        return
+    end
+
+    -- Send to client for display
+    TriggerClientEvent('weapons:client:showDurability', src, weapons)
+end)
+```
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('weapons:client:showDurability', function(weapons)
+    local options = {}
+
+    for i = 1, #weapons do
+        local weapon = weapons[i]
+        local condition = 'Excellent'
+
+        if weapon.quality < 75 then condition = 'Good' end
+        if weapon.quality < 50 then condition = 'Poor' end
+        if weapon.quality < 25 then condition = 'Very Poor' end
+        if weapon.quality <= 0 then condition = 'Broken' end
+
+        options[#options + 1] = {
+            title = weapon.name,
+            description = 'Condition: '.. condition ..' ('.. math.floor(weapon.quality) ..'%)',
+            metadata = {
+                { label = 'Serial', value = weapon.serial },
+                { label = 'Quality', value = math.floor(weapon.quality) ..'%' }
+            },
+            disabled = true
+        }
+    end
+
+    lib.registerContext({
+        id = 'weapon_durability',
+        title = 'Weapon Condition',
+        options = options
+    })
+
+    lib.showContext('weapon_durability')
+end)
+```
+
+---
+
+### Example 4: Custom Weapon Shop
+
+```lua
+-- SERVER SIDE
+local weaponShop = {
+    {
+        weapon = 'weapon_revolver_cattleman',
+        label = 'Cattleman Revolver',
+        price = 150,
+        ammo = 'ammo_revolver'
+    },
+    {
+        weapon = 'weapon_pistol_mauser',
+        label = 'Mauser Pistol',
+        price = 250,
+        ammo = 'ammo_pistol'
+    },
+    {
+        weapon = 'weapon_rifle_springfield',
+        label = 'Springfield Rifle',
+        price = 500,
+        ammo = 'ammo_rifle'
+    }
+}
+
+RegisterNetEvent('weaponshop:server:open', function()
+    local src = source
+    local options = {}
+
+    for i = 1, #weaponShop do
+        local item = weaponShop[i]
+        options[#options + 1] = {
+            title = item.label,
+            description = 'Price: $'.. item.price,
+            icon = 'fa-solid fa-gun',
+            serverEvent = 'weaponshop:server:buy',
+            args = { weapon = item.weapon, price = item.price, ammo = item.ammo }
+        }
+    end
+
+    lib.registerContext({
+        id = 'weapon_shop',
+        title = 'Weapon Store',
+        options = options
+    })
+
+    TriggerClientEvent('weaponshop:client:show', src)
+end)
+
+RegisterNetEvent('weaponshop:server:buy', function(data)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check money
+    if Player.Functions.GetMoney('cash') < data.price then
+        lib.notify({ description = 'Not enough money', type = 'error' })
+        return
+    end
+
+    -- Check space
+    local canAddWeapon = exports['rsg-inventory']:CanAddItem(src, data.weapon, 1)
+    local canAddAmmo = exports['rsg-inventory']:CanAddItem(src, data.ammo, 50)
+
+    if not canAddWeapon or not canAddAmmo then
+        lib.notify({ description = 'Inventory full', type = 'error' })
+        return
+    end
+
+    -- Process purchase
+    if Player.Functions.RemoveMoney('cash', data.price, 'weapon-shop') then
+        exports['rsg-inventory']:AddItem(src, data.weapon, 1, nil, { quality = 100, ammo = 0 }, 'weapon-shop')
+        exports['rsg-inventory']:AddItem(src, data.ammo, 50, nil, nil, 'weapon-shop')
+
+        lib.notify({ description = 'Weapon purchased!', type = 'success' })
+    end
+end)
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Balance degradation rates**: Too fast = annoying, too slow = meaningless. Test with your community!
+</Tip>
+
+<Warning>
+**Track weapon serials for law enforcement RP**: Use the serial numbers for crime investigations
+</Warning>
+
+<Check>
+**Make repair kits accessible**: Ensure players can obtain repair kits reasonably
+</Check>
+
+### Performance Tips
+
+1. **Degradation batching**: Shots are queued and processed in batches (every 5 seconds)
+2. **Don't check quality every frame**: Only check when weapon is actually used
+3. **Cache weapon data**: Don't repeatedly query the same weapon information
+
+### Balancing Tips
+
+1. **Degrade rate**: 0.01 per shot is a good baseline (1% per 100 shots)
+2. **Repair kit availability**: Balance cost vs weapon prices
+3. **Quality thresholds**: Consider adding effects at different quality levels
+4. **Ammo economy**: Balance ammo costs with weapon upkeep costs
+
+---
+
+## Common Issues
+
+### Weapon Not Degrading
+
+<AccordionGroup>
+  <Accordion title="Check Config.DegradeRate" defaultOpen={false}>
+    Ensure `Config.DegradeRate` is not set to 0
+  </Accordion>
+
+  <Accordion title="Check UpdateDegrade interval" defaultOpen={false}>
+    Verify `Config.UpdateDegrade` is set properly (default: 5000ms)
+  </Accordion>
+
+  <Accordion title="Check for errors" defaultOpen={false}>
+    Look in server console for any errors in weapon degradation events
+  </Accordion>
+</AccordionGroup>
+
+### Repair Kit Not Working
+
+- Ensure item is defined as useable in shared/items.lua
+- Check that weapon has a valid serial number
+- Verify player actually has a weapon to repair
+
+### Weapons Disappearing
+
+- Check if quality reached 0% (broken weapons stay in inventory but are unusable)
+- Verify weapon items are defined correctly in shared/items.lua
+- Check for inventory saving errors
+
+---
+
+## Next Steps
+
+- [Inventory Overview](/inventory/overview) - Learn about the inventory system
+- [Inventory Functions](/inventory/functions) - Complete inventory function reference
+- [RSG Core Configuration](/essentials/configuration) - Configure your server
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!
