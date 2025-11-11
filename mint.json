@@ -39,13 +39,6 @@
       "url": "lua-reference"
     }
   ],
-  "anchors": [
-    {
-      "name": "Home",
-      "icon": "book-open-cover",
-      "url": "homepage"
-    }
-  ],
   "navigation": [
     {
       "group": "Getting Started",
