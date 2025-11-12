@@ -7,7 +7,7 @@ The official comprehensive documentation for RSG Framework - A complete RedM rol
 
 ## 📖 Documentation
 
-**Live Documentation:** [https://quantumprojects.mintlify.app/introduction](https://quantumprojects.mintlify.app/homepage)
+**Live Documentation:** [https://rsg.mintlify.app/homepage](https://rsg.mintlify.app/homepage)
 
 This documentation provides complete guides, API references, and tutorials for developing with RSG Framework.
 
