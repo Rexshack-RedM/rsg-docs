@@ -104,7 +104,7 @@ This documentation is licensed under the MIT License - see the [LICENSE](LICENSE
 Need help? Have questions?
 
 - Join our [Discord Server](https://discord.gg/rsg-redm-framework-914413479157448744)
-- Check the [Documentation](https://quantumprojects.mintlify.app/homepage)
+- Check the [Documentation](https://rsg.mintlify.app/homepage)
 - Open an issue on this repository
 
 ---
