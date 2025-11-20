@@ -7,9 +7,34 @@ description: "Learn how to use RSG Core's callback system for client-server comm
 
 Callbacks in RSG Core provide a way to request data from the server and wait for a response, or vice versa. They're essential for synchronous communication between client and server scripts.
 
+**Location**: `resources/[framework]/rsg-core/server/functions.lua` & `client/functions.lua`
+
 <Note>
 Callbacks are perfect for situations where you need to wait for data before continuing execution, like checking if a player has an item, getting database information, or validating actions.
 </Note>
+
+---
+
+## Core Features
+
+### 📡 Bidirectional Communication
+
+- **Server Callbacks**: Client requests data from server
+- **Client Callbacks**: Server requests data from specific client
+- **Multiple Arguments**: Pass any number of arguments
+- **Any Data Types**: Return tables, strings, numbers, booleans
+
+### 🔒 Secure by Design
+
+- **Server-side Validation**: All sensitive logic stays on server
+- **No Client Trust**: Client only receives processed results
+- **Source Tracking**: Always know which player triggered callback
+
+### ⚡ Efficient Data Flow
+
+- **Async Processing**: Non-blocking operations
+- **Promise Support**: Await pattern for cleaner code
+- **No Event Spam**: Request-response pattern prevents loops
 
 ---
 
@@ -536,3 +561,16 @@ end)
 - **Always handle** nil responses
 - **Use events** for one-way communication
 - **Cache data** when possible to avoid repeated callbacks
+
+---
+
+## Next Steps
+
+- [Server Events Guide](/essentials/events) - One-way server-client communication
+- [Player Data](/essentials/playerdata) - Access and modify player data
+- [Server Functions Reference](/api-reference/endpoint/serverfunctionreference) - Complete function list
+- [Inventory Functions](/inventory/functions) - Work with inventory items
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

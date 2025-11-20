@@ -1,143 +1,493 @@
 ---
-title: "📜 Shared"
-description: "Learn how to manage your server's jobs, vehicles, items, etc!"
+title: "📜 Shared Configuration"
+description: "Complete guide to configuring jobs, items, vehicles, gangs, and utilities in RSG Framework"
 ---
 
 ## Introduction
 
-* The shared file inside rsg-core contains all the information for your jobs, vehicles, items & more! You will spend a lot of time in this file configuring everything to your exact specifications. Jenkins hashes are used frequently, you can find more information on those [here](https://cookbook.fivem.net/2019/06/23/lua-support-for-compile-time-jenkins-hashes/)
+The shared files in `rsg-core` contain all the core configuration data for your server including jobs, items, vehicles, gangs, weapons, and utility functions. These files are shared between client and server, making the data accessible on both sides without additional network calls.
 
-### Utility
+**Location**: `resources/[framework]/rsg-core/shared/`
 
-* **Found in rsg-core/shared/main.lua**
+<Check>
+Shared files are loaded on both client and server automatically. Changes require a server restart!
+</Check>
+
+---
+
+## Core Features
+
+### 📦 Centralized Configuration
+
+- **Jobs**: Define all server jobs with grades and payments
+- **Items**: Configure inventory items with properties and metadata
+- **Vehicles**: Set up vehicle shops and pricing
+- **Gangs**: Create gang hierarchies and structures
+- **Weapons**: Define weapon properties and ammo types
+- **Utilities**: Helper functions for common operations
+
+### 🔄 Shared Access
+
+- **Client & Server**: Data available on both sides
+- **No Network Calls**: Instant access without events
+- **Consistent Data**: Single source of truth
+- **Easy Management**: Edit in one place, affects everywhere
+
+### ⚙️ Flexible System
+
+- **Add Custom Jobs**: Create new job types
+- **Define Items**: Add new items with decay, quality, etc.
+- **Vehicle Categories**: Organize vehicles by type
+- **Gang System**: Set up gang hierarchies
+- **Utility Functions**: String manipulation, math helpers
+
+---
+
+## Utility Functions
+
+### Location
+
+**File**: `rsg-core/shared/main.lua`
+
+### Starter Items
+
+Define default items for new players:
 
 ```lua
-RSGShared = RSGShared or {}
-
-local StringCharset = {}
-local NumberCharset = {}
-
 RSGShared.StarterItems = {
     bread = { amount = 5, item = 'bread' },
     water = { amount = 5, item = 'water' },
 }
-
-for i = 48, 57 do NumberCharset[#NumberCharset + 1] = string.char(i) end
-for i = 65, 90 do StringCharset[#StringCharset + 1] = string.char(i) end
-for i = 97, 122 do StringCharset[#StringCharset + 1] = string.char(i) end
-
-function RSGShared.RandomStr(length)
-    if length <= 0 then return '' end
-    return RSGShared.RandomStr(length - 1) .. StringCharset[math.random(1, #StringCharset)]
-end
-
-function RSGShared.RandomInt(length)
-    if length <= 0 then return '' end
-    return RSGShared.RandomInt(length - 1) .. NumberCharset[math.random(1, #NumberCharset)]
-end
-
-function RSGShared.SplitStr(str, delimiter)
-    local result = {}
-    local from = 1
-    local delim_from, delim_to = string.find(str, delimiter, from)
-    while delim_from do
-        result[#result + 1] = string.sub(str, from, delim_from - 1)
-        from = delim_to + 1
-        delim_from, delim_to = string.find(str, delimiter, from)
-    end
-    result[#result + 1] = string.sub(str, from)
-    return result
-end
-
-function RSGShared.Trim(value)
-    if not value then return nil end
-    return (string.gsub(value, '^%s*(.-)%s*$', '%1'))
-end
-
-function RSGShared.FirstToUpper(value)
-    if not value then return nil end
-    return (value:gsub("^%l", string.upper))
-end
-
-function RSGShared.Round(value, numDecimalPlaces)
-    if not numDecimalPlaces then return math.floor(value + 0.5) end
-    local power = 10 ^ numDecimalPlaces
-    return math.floor((value * power) + 0.5) / (power)
-end
-
-function RSGShared.ChangeVehicleExtra(vehicle, extra, enable)
-    if DoesExtraExist(vehicle, extra) then
-        if enable then
-            SetVehicleExtra(vehicle, extra, false)
-            if not IsVehicleExtraTurnedOn(vehicle, extra) then
-                RSGShared.ChangeVehicleExtra(vehicle, extra, enable)
-            end
-        else
-            SetVehicleExtra(vehicle, extra, true)
-            if IsVehicleExtraTurnedOn(vehicle, extra) then
-                RSGShared.ChangeVehicleExtra(vehicle, extra, enable)
-            end
-        end
-    end
-end
-
-function RSGShared.SetDefaultVehicleExtras(vehicle, config)
-    -- Clear Extras
-    for i = 1, 20 do
-        if DoesExtraExist(vehicle, i) then
-            SetVehicleExtra(vehicle, i, 1)
-        end
-    end
-
-    for id, enabled in pairs(config) do
-        RSGShared.ChangeVehicleExtra(vehicle, tonumber(id), type(enabled) == 'boolean' and enabled or true)
-    end
-end
-
 ```
 
-### Items
+**Customization**:
 
-* **Found in rsg-core/shared/items.lua**
+```lua
+-- Give different starter items
+RSGShared.StarterItems = {
+    bread = { amount = 10, item = 'bread' },
+    water = { amount = 10, item = 'water' },
+    bandage = { amount = 3, item = 'bandage' },
+    dollar = { amount = 50, item = 'dollar' }  -- Starting cash if using money items
+}
+```
 
+### String Functions
 
+#### RandomStr
+
+Generate random string of specified length:
+
+```lua
+RSGShared.RandomStr(length)
+```
+
+**Example**:
+
+```lua
+local randomString = RSGShared.RandomStr(8)
+-- Result: "aBcDeFgH"
+
+-- Use for unique IDs
+local transactionId = 'TXN_'.. RSGShared.RandomStr(12)
+-- Result: "TXN_XyZ123AbCdEf"
+```
+
+#### RandomInt
+
+Generate random number string:
+
+```lua
+RSGShared.RandomInt(length)
+```
+
+**Example**:
+
+```lua
+local randomNumber = RSGShared.RandomInt(6)
+-- Result: "482719"
+
+-- Use for PINs, codes
+local pinCode = RSGShared.RandomInt(4)
+-- Result: "1234"
+```
+
+#### SplitStr
+
+Split string by delimiter:
+
+```lua
+RSGShared.SplitStr(str, delimiter)
+```
+
+**Example**:
+
+```lua
+local parts = RSGShared.SplitStr("John,Doe,30", ",")
+-- Result: { "John", "Doe", "30" }
+
+-- Parse player names
+local fullName = "John Marston"
+local names = RSGShared.SplitStr(fullName, " ")
+local firstname = names[1]  -- "John"
+local lastname = names[2]   -- "Marston"
+```
+
+#### Trim
+
+Remove whitespace from string:
+
+```lua
+RSGShared.Trim(value)
+```
+
+**Example**:
+
+```lua
+local clean = RSGShared.Trim("  Hello World  ")
+-- Result: "Hello World"
+
+-- Useful for user input
+local playerInput = "  John  "
+local cleanName = RSGShared.Trim(playerInput)
+-- Result: "John"
+```
+
+#### FirstToUpper
+
+Capitalize first letter:
+
+```lua
+RSGShared.FirstToUpper(value)
+```
+
+**Example**:
+
+```lua
+local capitalized = RSGShared.FirstToUpper("john")
+-- Result: "John"
+
+-- Format names
+local firstname = RSGShared.FirstToUpper(string.lower("JOHN"))
+-- Result: "John"
+```
+
+#### Round
+
+Round number to decimal places:
+
+```lua
+RSGShared.Round(value, numDecimalPlaces)
+```
+
+**Example**:
+
+```lua
+local rounded = RSGShared.Round(3.14159, 2)
+-- Result: 3.14
+
+-- Round money
+local price = 123.456
+local finalPrice = RSGShared.Round(price, 2)
+-- Result: 123.46
+
+-- Round to integer
+local wholeNumber = RSGShared.Round(3.7)
+-- Result: 4
+```
+
+### Vehicle Functions
+
+#### ChangeVehicleExtra
+
+Toggle vehicle extras:
+
+```lua
+RSGShared.ChangeVehicleExtra(vehicle, extra, enable)
+```
+
+**Example**:
+
+```lua
+-- CLIENT SIDE
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+-- Enable extra 1
+RSGShared.ChangeVehicleExtra(vehicle, 1, true)
+
+-- Disable extra 2
+RSGShared.ChangeVehicleExtra(vehicle, 2, false)
+```
+
+#### SetDefaultVehicleExtras
+
+Set multiple vehicle extras:
+
+```lua
+RSGShared.SetDefaultVehicleExtras(vehicle, config)
+```
+
+**Example**:
+
+```lua
+-- CLIENT SIDE
+local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+-- Configure extras
+local extraConfig = {
+    [1] = true,   -- Enable extra 1
+    [2] = false,  -- Disable extra 2
+    [3] = true    -- Enable extra 3
+}
+
+RSGShared.SetDefaultVehicleExtras(vehicle, extraConfig)
+```
+
+---
+
+## Items Configuration
+
+### Location
+
+**File**: `rsg-core/shared/items.lua`
+
+### Item Structure
+
+Complete item definition with all properties:
 
 ```lua
 RSGShared.Items = {
-    bread      = { 
-        name = 'bread',     -- Actual item name for spawning/giving/removing      
-        label = 'Bread',    -- Label of item that is shown in inventory slot        
-        weight = 100,       -- How much the items weighs
-        type = 'item',      -- What type the item is (ex: item, weapon)
-        image = 'consumable_bread_roll.png',-- This item image that is found in rsg-inventory/html/images (must be same name as ['name'] from above)          
-        unique = false, -- Is the item unique (true|false) - Cannot be stacked & accepts item info to be assigned
-        useable = true, -- Is the item useable (true|false) - Must still be registered as useable
-        shouldClose = true, -- Should the item close the inventory on use (true|false)
-        description = 'Bread Roll' },-- Description of time in inventory
-    }
+    ['bread'] = {
+        name = 'bread',                        -- Item identifier (must match key)
+        label = 'Bread',                       -- Display name
+        weight = 100,                          -- Weight in grams
+        type = 'item',                         -- Type: 'item' or 'weapon'
+        image = 'consumable_bread_roll.png',   -- Image in rsg-inventory/html/images
+        unique = false,                        -- Each item takes own slot if true
+        useable = true,                        -- Can be used (needs callback)
+        shouldClose = true,                    -- Close inventory on use
+        combinable = nil,                      -- Crafting combinations (optional)
+        description = 'Fresh baked bread',     -- Tooltip description
+        decay = 300,                           -- Decay time in minutes (optional)
+        delete = true,                         -- Auto-delete at 0% quality (optional)
+        info = {                               -- Default metadata (v2.7.3+)
+            quality = 100
+        }
+    },
+}
 ```
 
-### Jobs
+### Item Properties Reference
 
-* **Found in rsg-core/shared/jobs.lua**a
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Item spawn name (must match table key) |
+| `label` | string | Yes | Display name in inventory |
+| `weight` | number | Yes | Item weight in grams |
+| `type` | string | Yes | `'item'` or `'weapon'` |
+| `image` | string | Yes | Image filename (in rsg-inventory/html/images) |
+| `unique` | boolean | Yes | If true, items don't stack |
+| `useable` | boolean | Yes | If true, item can be used |
+| `shouldClose` | boolean | Yes | Close inventory when used |
+| `description` | string | Yes | Item tooltip text |
+| `decay` | number | No | Minutes from 100% to 0% quality |
+| `delete` | boolean | No | Auto-remove at 0% quality |
+| `combinable` | table | No | Crafting recipe combinations |
+| `ammotype` | string | Weapons | Ammo type for weapons |
+| `info` | table | No | Default metadata (v2.7.3+) |
+
+### Item Type Examples
+
+#### Consumable Food
+
+```lua
+['bread'] = {
+    name = 'bread',
+    label = 'Bread',
+    weight = 100,
+    type = 'item',
+    image = 'consumable_bread_roll.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Fresh baked bread',
+    decay = 300,        -- 5 hours
+    delete = true
+},
+
+['cooked_meat'] = {
+    name = 'cooked_meat',
+    label = 'Cooked Meat',
+    weight = 400,
+    type = 'item',
+    image = 'consumable_meat_cooked.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Perfectly cooked meat',
+    decay = 480,        -- 8 hours
+    delete = true
+},
+```
+
+#### Tools & Equipment
+
+```lua
+['pickaxe'] = {
+    name = 'pickaxe',
+    label = 'Pickaxe',
+    weight = 2000,
+    type = 'item',
+    image = 'tool_pickaxe.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Mining pickaxe for extracting ore',
+    decay = 10080,      -- 7 days
+    delete = false      -- Keep broken tool
+},
+
+['lasso'] = {
+    name = 'lasso',
+    label = 'Lasso',
+    weight = 500,
+    type = 'item',
+    image = 'tool_lasso.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Rope lasso for catching animals or people'
+},
+```
+
+#### Money Items
+
+```lua
+['dollar'] = {
+    name = 'dollar',
+    label = 'Dollars',
+    weight = 1,
+    type = 'item',
+    image = 'dollar.png',
+    unique = false,
+    useable = false,
+    shouldClose = false,
+    description = 'US Dollar currency'
+},
+
+['blood_dollar'] = {
+    name = 'blood_dollar',
+    label = 'Bloodstained Dollars',
+    weight = 1,
+    type = 'item',
+    image = 'bloodmoney.png',
+    unique = false,
+    useable = false,
+    shouldClose = false,
+    description = 'Blood-stained money from illegal activities'
+},
+```
+
+#### Weapon Items
+
+```lua
+['weapon_revolver_cattleman'] = {
+    name = 'weapon_revolver_cattleman',
+    label = 'Cattleman Revolver',
+    weight = 1000,
+    type = 'weapon',
+    ammotype = 'AMMO_REVOLVER',
+    image = 'weapon_revolver_cattleman.png',
+    unique = true,
+    useable = false,
+    description = 'A reliable six-shooter revolver'
+},
+
+['ammorevolver'] = {
+    name = 'ammorevolver',
+    label = 'Revolver Ammo',
+    weight = 10,
+    type = 'item',
+    ammotype = 'AMMO_REVOLVER',
+    image = 'ammo_revolver.png',
+    unique = false,
+    useable = false,
+    description = 'Ammunition for revolvers'
+},
+```
+
+#### Items with Default Metadata
+
+```lua
+-- v2.7.3+ Feature
+['bottle'] = {
+    name = 'bottle',
+    label = 'Glass Bottle',
+    weight = 200,
+    type = 'item',
+    image = 'item_bottle.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'An empty glass bottle',
+    info = {
+        liquid = 'empty',
+        volume = 0,
+        maxVolume = 500
+    }
+},
+
+['horse_brush'] = {
+    name = 'horse_brush',
+    label = 'Horse Brush',
+    weight = 300,
+    type = 'item',
+    image = 'tool_horsebrush.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Brush for grooming horses',
+    decay = 20160,  -- 14 days
+    delete = false,
+    info = {
+        durability = 100,
+        uses = 0
+    }
+},
+```
+
+---
+
+## Jobs Configuration
+
+### Location
+
+**File**: `rsg-core/shared/jobs.lua`
+
+### Job Structure
+
+Complete job definition:
 
 ```lua
 RSGShared = RSGShared or {}
-RSGShared.ForceJobDefaultDutyAtLogin = true -- true: Force duty state to jobdefaultDuty | false: set duty state from database last saved
-RSGShared.Jobs = {
+RSGShared.ForceJobDefaultDutyAtLogin = true  -- Force duty state on login
 
-    unemployed = {              -- job name (string)
-        label = 'Civilian',     -- job label (string)
-        defaultDuty = true,     -- enable/disable player being auto clocked-in (bool)
-        offDutyPay = false,     -- enable/disable player being paid offduty (bool)
+RSGShared.Jobs = {
+    unemployed = {
+        name = 'unemployed',
+        label = 'Civilian',
+        defaultDuty = true,
+        offDutyPay = false,
         grades = {
-            ['0'] = {            -- job grade (string)
-             name = 'Freelancer',-- job grade name (string)
-             payment =  3        -- paycheck amount (number)
-              },
-        },
+            ['0'] = {
+                name = 'Freelancer',
+                payment = 3
+            }
+        }
     },
+
     vallaw = {
+        name = 'vallaw',
         label = 'Valentine Law Enforcement',
         type = 'leo',
         defaultDuty = false,
@@ -145,35 +495,118 @@ RSGShared.Jobs = {
         grades = {
             ['0'] = { name = 'Recruit', payment = 10 },
             ['1'] = { name = 'Deputy', payment = 25 },
-            ['2'] = { name = 'Sheriff',
-             isboss = true,       -- set this grade as a boss=true to access boss menu
-             payment = 50 },
-        },
+            ['2'] = { name = 'Sheriff', isboss = true, payment = 50 }
+        }
     },
 }
 ```
 
-### Vehicles
+### Job Properties
 
-* **Found in rsg-core/shared/vehicles.lua**
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Internal job identifier |
+| `label` | string | Yes | Display name |
+| `type` | string | No | Job category (`'leo'`, `'medic'`) |
+| `defaultDuty` | boolean | Yes | Auto clock-in on login |
+| `offDutyPay` | boolean | Yes | Pay when off-duty |
+| `grades` | table | Yes | Grade/rank levels |
+
+### Grade Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Grade display name |
+| `payment` | number | Yes | Paycheck amount |
+| `isboss` | boolean | No | Access to boss menu |
+
+### Default Jobs
+
+The framework includes these jobs by default:
+
+**Law Enforcement** (`type = 'leo'`):
+- `vallaw` - Valentine Law Enforcement
+- `rholaw` - Rhodes Law Enforcement
+- `blklaw` - Blackwater Law Enforcement
+- `strlaw` - Strawberry Law Enforcement
+- `stdenlaw` - Saint Denis Law Enforcement
+
+**Medical** (`type = 'medic'`):
+- `valmedic` - Valentine Medic
+- `sdmedic` - Saint Denis Medic
+
+**Civilian**:
+- `unemployed` - Default job for all players
+
+### Creating Custom Jobs
+
+```lua
+-- Example: Blacksmith job
+blacksmith = {
+    name = 'blacksmith',
+    label = 'Blacksmith',
+    type = 'crafting',
+    defaultDuty = true,
+    offDutyPay = false,
+    grades = {
+        ['0'] = { name = 'Apprentice', payment = 15 },
+        ['1'] = { name = 'Journeyman', payment = 30 },
+        ['2'] = { name = 'Master Smith', isboss = true, payment = 60 }
+    }
+},
+
+-- Example: Rancher job
+rancher = {
+    name = 'rancher',
+    label = 'Rancher',
+    type = 'farming',
+    defaultDuty = true,
+    offDutyPay = true,  -- Ranchers always get paid
+    grades = {
+        ['0'] = { name = 'Ranch Hand', payment = 20 },
+        ['1'] = { name = 'Foreman', payment = 40 },
+        ['2'] = { name = 'Ranch Owner', isboss = true, payment = 80 }
+    }
+},
+```
+
+---
+
+## Vehicles Configuration
+
+### Location
+
+**File**: `rsg-core/shared/vehicles.lua`
+
+### Vehicle Structure
 
 ```lua
 RSGShared = RSGShared or {}
 RSGShared.Vehicles = RSGShared.Vehicles or {}
 
 local Vehicles = {
+    CART01 = {
+        name = 'Wooden Cart 1',
+        brand = 'Unknown',
+        model = 'CART01',
+        price = 100,
+        category = 'carts',
+        hash = joaat('CART01'),
+        shop = 'valentine_stable'
+    },
 
-    CART01 = {                   -- Cart model/spawn name (string)
-        name = 'Wooden Cart 1',  -- Desired name/label for the cart (string)
-        brand = '?',             -- The brand of cart (string)
-        model = 'CART01',        -- Cart model/spawn name (string)
-        price = 10,              -- How much the cart costs at the stable (number)
-        category = 'carts',      -- The category the vehicle will display in at the stable (string)
-        hash = '-824257932',     -- Vehicle model number 
-        shop = 'cart',           -- The desired shop the cart is available for sale at (string)
+    A_C_HORSE_AMERICANPAINT_GREYOVERO = {
+        name = 'American Paint - Grey Overo',
+        brand = 'Horse',
+        model = 'A_C_HORSE_AMERICANPAINT_GREYOVERO',
+        price = 500,
+        category = 'horses',
+        hash = joaat('A_C_HORSE_AMERICANPAINT_GREYOVERO'),
+        shop = 'valentine_stable'
     },
 }
 
+-- Auto-populate RSGShared.Vehicles table
 for i = 1, #Vehicles do
     RSGShared.Vehicles[Vehicles[i].model] = {
         spawncode = Vehicles[i].model,
@@ -183,15 +616,40 @@ for i = 1, #Vehicles do
         price = Vehicles[i].price,
         category = Vehicles[i].category,
         hash = joaat(Vehicles[i].model),
-        type = Vehicles[i].type,
         shop = Vehicles[i].shop
     }
 end
 ```
 
-### Gangs
+### Vehicle Properties
 
-* Found in rsg-core/shared/gangs.lua
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Display name |
+| `brand` | string | Manufacturer/breed |
+| `model` | string | Spawn code |
+| `price` | number | Purchase price |
+| `category` | string | Category for shops |
+| `hash` | number | Model hash (auto-calculated) |
+| `shop` | string | Shop identifier |
+
+### Vehicle Categories
+
+Common categories:
+- `'horses'` - Horse mounts
+- `'carts'` - Wagons and carts
+- `'coaches'` - Stagecoaches
+- `'boats'` - Watercraft
+
+---
+
+## Gangs Configuration
+
+### Location
+
+**File**: `rsg-core/shared/gangs.lua`
+
+### Gang Structure
 
 ```lua
 RSGShared = RSGShared or {}
@@ -199,50 +657,150 @@ RSGShared.Gangs = {
     none = {
         label = 'No Gang',
         grades = {
-            ['0'] = {
-                name = 'Unaffiliated'
-            }
+            ['0'] = { name = 'Unaffiliated' }
         }
     },
-    odriscoll = {              -- grade name (string)
-		label = 'O Driscoll Boys',  -- Label of the gang (string)
-		grades = {
-            ['0'] = {  -- grade (number)
-                name = 'Recruit'
-            },
-			['1'] = {
-                name = 'Enforcer'  -- Label of the gang grade (string)
-            },
-			['2'] = {
-                name = 'Shot Caller'
-            },
-			['3'] = {
-                name = 'Boss',
-				isboss = true   -- set this grade as a boss to access gang menu
-            },
-        },
-    }
+
+    odriscoll = {
+        label = 'O\'Driscoll Boys',
+        grades = {
+            ['0'] = { name = 'Recruit' },
+            ['1'] = { name = 'Enforcer' },
+            ['2'] = { name = 'Shot Caller' },
+            ['3'] = { name = 'Boss', isboss = true }
+        }
+    },
 }
 ```
 
-### Weapons
+### Default Gangs
 
-* **Found in rsg-core/shared/weapons.lua**
+- `none` - No gang affiliation
+- `odriscoll` - O'Driscoll Boys
+- `lemoyne` - Lemoyne Raiders
+- `murfree` - Murfree Brood
+- `skinner` - Skinner Brothers
+- `laramie` - Laramie Gang
+- `dellobo` - Del Lobo Gang
+- `night` - Night Folk
+- `foreman` - Foreman Brothers
+- `anderson` - Anderson Boys
+- `watson` - Watson's Boys
 
-<Info>
-  Weapons are added in shared/items.lua as well!
-</Info>
+### Creating Custom Gangs
+
+```lua
+-- Example: Custom gang
+mystic_gang = {
+    label = 'Mystic Riders',
+    grades = {
+        ['0'] = { name = 'Prospect' },
+        ['1'] = { name = 'Member' },
+        ['2'] = { name = 'Road Captain' },
+        ['3'] = { name = 'Vice President' },
+        ['4'] = { name = 'President', isboss = true }
+    }
+},
+```
+
+---
+
+## Weapons Configuration
+
+### Location
+
+**File**: `rsg-core/shared/weapons.lua`
+
+### Weapon Structure
 
 ```lua
 RSGShared = RSGShared or {}
 RSGShared.Weapons = {
-    -- revolver
-	[`weapon_revolver_cattleman`] = {        -- Weapon hash 
-		 name = 'weapon_revolver_cattleman', -- Actual item name for spawning/giving/removing         
-		 label = 'Cattleman Revolver',       -- Label of item that is shown in inventory slot      
-		 weapontype = 'Revolver',     		 -- What type the item is (ex: revolver, shotgun)
-		 ammotype = 'AMMO_REVOLVER',         -- What type of ammo the item uses
-		 damagereason = 'Placeholder' 		 -- What type of damage the item does
-		}
-	}
+    [`weapon_revolver_cattleman`] = {
+        name = 'weapon_revolver_cattleman',
+        label = 'Cattleman Revolver',
+        weapontype = 'Revolver',
+        ammotype = 'AMMO_REVOLVER',
+        damagereason = 'Shot with Cattleman Revolver'
+    },
+
+    [`weapon_rifle_boltaction`] = {
+        name = 'weapon_rifle_boltaction',
+        label = 'Bolt Action Rifle',
+        weapontype = 'Rifle',
+        ammotype = 'AMMO_RIFLE',
+        damagereason = 'Shot with Bolt Action Rifle'
+    },
+}
 ```
+
+<Info>
+Weapons must also be defined in `shared/items.lua` as inventory items with `type = 'weapon'`!
+</Info>
+
+---
+
+## Best Practices
+
+<Tip>
+**Restart Required**: All shared file changes require a full server restart to take effect
+</Tip>
+
+<Warning>
+**Unique Keys**: Ensure all items, jobs, and gangs have unique identifiers (names)
+</Warning>
+
+<Check>
+**Test Thoroughly**: Test all new jobs, items, and vehicles before deploying to production
+</Check>
+
+### Configuration Tips
+
+1. **Consistent Naming**: Use lowercase with underscores (`my_custom_item`)
+2. **Clear Labels**: Use descriptive display names
+3. **Balanced Payments**: Keep job payments balanced for economy
+4. **Weight System**: 1000g = 1kg, keep items realistic
+5. **Image Files**: Ensure all images exist in rsg-inventory/html/images
+
+### Common Mistakes
+
+❌ **Don't**:
+```lua
+-- Mismatched key and name
+['my_item'] = {
+    name = 'myitem',  -- WRONG! Should match key
+    -- ...
+}
+
+-- Forgetting quotes on grade keys
+grades = {
+    [0] = { name = 'Grade' }  -- WRONG! Should be '0'
+}
+```
+
+✅ **Do**:
+```lua
+-- Matching key and name
+['my_item'] = {
+    name = 'my_item',  -- Correct!
+    -- ...
+}
+
+-- Proper grade key format
+grades = {
+    ['0'] = { name = 'Grade' }  -- Correct!
+}
+```
+
+---
+
+## Next Steps
+
+- [Item Decay System](/inventory/item-decay) - Configure item quality degradation
+- [Money System](/essentials/money-system) - Set up money types and banks
+- [Configuration Guide](/essentials/configuration) - Configure server settings
+- [Inventory Functions](/inventory/functions) - Work with items programmatically
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

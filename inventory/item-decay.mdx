@@ -1,0 +1,1327 @@
+---
+title: "⏳ Item Decay System"
+description: "Complete guide to the RSG Inventory time-based item quality degradation system"
+---
+
+## Introduction
+
+The RSG Inventory system features a sophisticated time-based decay mechanism that simulates realistic item deterioration. Food spoils, materials degrade, and items lose quality over time - adding depth and realism to your RedM economy and encouraging active gameplay.
+
+**Version**: 2.7.3+ (Updated November 2024)
+
+<Check>
+Item decay runs automatically on the server-side based on real-world time, not playtime. You can now control whether items decay offline!
+</Check>
+
+<Info>
+**New in v2.7.3**: Offline decay control, custom stash decay rates, and default item metadata!
+</Info>
+
+---
+
+## Core Features
+
+### 📉 Quality-Based Degradation
+
+- **Quality Range**: 0-100 (100 = perfect condition, 0 = destroyed)
+- **Linear Decay**: Predictable degradation over time
+- **Item-Specific Rates**: Each item defines its own decay speed
+- **Passive System**: Automatic calculation, no manual intervention needed
+
+### 🔄 Automatic Management
+
+- **Auto-Calculation**: Decay computed on inventory load and item use
+- **Auto-Deletion**: Items at 0% quality are automatically removed (optional)
+- **Timestamp Tracking**: Uses Unix timestamps for accuracy
+- **Offline Decay Control**: NEW! Configure whether items decay while player is offline
+
+### 🎯 Flexible Configuration
+
+- **Per-Item Control**: Each item has its own decay rate
+- **Optional Deletion**: Choose whether items delete at 0% quality
+- **No Decay Option**: Items without `decay` property never degrade
+- **Quality Info**: Quality stored in item metadata for access
+- **Stash Decay Rates**: NEW! Custom decay rates for specific stashes (coolers, freezers, etc.)
+- **Default Metadata**: NEW! Set default item info values in item definitions
+
+---
+
+## How It Works
+
+### Decay Calculation Formula
+
+The system uses a linear decay formula with optional modifiers:
+
+```lua
+-- Decay Formula (v2.7.3+)
+timeElapsed = currentTime - item.info.lastUpdate
+decayRate = (100 / (itemDecay * 60)) * decayRateModifier
+newQuality = math.max(0, oldQuality - (timeElapsed * decayRate))
+```
+
+**Breakdown**:
+1. **Time Elapsed**: Calculate seconds since last update
+2. **Base Decay Rate**: Convert minutes to per-second decay rate
+3. **Decay Rate Modifier**: Apply stash-specific multiplier (default: 1.0)
+4. **New Quality**: Subtract modified decay from current quality (minimum 0)
+
+**Decay Rate Modifier**:
+- `1.0` = Normal decay (100%)
+- `0.3` = Slow decay (30% of normal) - refrigerator
+- `0.0` = No decay (0%) - freezer
+- `50.0` = Fast decay (5000% of normal) - composter
+
+### Decay Timeline Example
+
+Item with `decay = 300` (5 hours):
+
+```
+Start:      Quality = 100%
+1 hour:     Quality = 80%   (20% lost)
+2.5 hours:  Quality = 50%   (halfway)
+4 hours:    Quality = 20%   (critical)
+5 hours:    Quality = 0%    (destroyed)
+```
+
+**Calculation**:
+- Decay rate: 100 / (300 * 60) = 0.00556% per second
+- After 1 hour (3600s): 100 - (3600 × 0.00556) = 80%
+- After 5 hours (18000s): 100 - (18000 × 0.00556) = 0%
+
+---
+
+## Item Configuration
+
+### Item Definition Structure
+
+Items with decay are defined in `rsg-core/shared/items.lua`:
+
+```lua
+['bread'] = {
+    name = 'bread',
+    label = 'Bread',
+    weight = 100,
+    type = 'item',
+    image = 'consumable_bread_roll.png',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'Fresh baked bread',
+    decay = 300,        -- Time in MINUTES from 100% to 0%
+    delete = true,      -- Auto-delete at 0% quality
+},
+```
+
+### Decay Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `decay` | number | No | Minutes for quality to go from 100% to 0% |
+| `delete` | boolean | No | If true, item removed at 0% quality (requires `decay`) |
+
+<Info>
+Items without a `decay` property never lose quality and last forever.
+</Info>
+
+---
+
+## Decay Configuration
+
+### Offline Decay Setting
+
+Configure whether items decay when players are offline in `rsg-inventory/shared/config.lua`:
+
+```lua
+Config.ItemsDecayWhileOffline = false  -- true or false
+```
+
+**When `false` (recommended)**:
+- Items only decay when player is online and playing
+- More forgiving for casual players
+- Prevents logging in to spoiled food after a few days offline
+- Decay timer pauses when player disconnects
+
+**When `true`**:
+- Items decay based on real-world time
+- More realistic simulation
+- Encourages regular login to manage inventory
+- Food spoils even when offline
+
+<Tip>
+Setting this to `false` is recommended for most servers to improve player experience and prevent frustration from offline decay.
+</Tip>
+
+### Default Item Metadata
+
+You can now define default metadata for items in `rsg-core/shared/items.lua`:
+
+```lua
+['bottle'] = {
+    name = 'bottle',
+    label = 'Glass Bottle',
+    weight = 200,
+    type = 'item',
+    unique = false,
+    useable = true,
+    shouldClose = true,
+    description = 'A glass bottle',
+    decay = 10080,  -- 7 days
+    delete = false,
+    info = {
+        -- Default metadata applied to new items
+        liquid = 'empty',
+        volume = 0,
+        maxVolume = 500
+    }
+},
+```
+
+When you add this item, the default `info` values are automatically included:
+
+```lua
+-- SERVER SIDE
+-- Before v2.7.3: Had to manually provide all info
+exports['rsg-inventory']:AddItem(source, 'bottle', 1, nil, {
+    liquid = 'empty',
+    volume = 0,
+    maxVolume = 500
+}, 'found')
+
+-- After v2.7.3: Defaults are auto-applied
+exports['rsg-inventory']:AddItem(source, 'bottle', 1, nil, nil, 'found')
+-- Item automatically has: { liquid = 'empty', volume = 0, maxVolume = 500 }
+
+-- You can still override defaults
+exports['rsg-inventory']:AddItem(source, 'bottle', 1, nil, {
+    liquid = 'water',  -- Overrides default 'empty'
+    volume = 500       -- Overrides default 0
+    -- maxVolume still uses default 500
+}, 'filled')
+```
+
+<Check>
+This dramatically simplifies item creation and ensures consistent metadata across all instances of an item type!
+</Check>
+
+---
+
+## Custom Stash Decay Rates
+
+### Decay Rate Naming System
+
+You can control decay rates for specific stashes using a special naming pattern:
+
+```
+stashname-decay{PERCENTAGE}
+```
+
+**Format**:
+- Base stash name
+- Followed by `-decay` or `_decay`
+- Followed by percentage number (0-100+ allowed)
+
+**Examples**:
+- `basement69-decay30` → 30% decay rate (slower)
+- `freezer111_decay0` → 0% decay rate (no decay)
+- `refrigerator_decay20` → 20% decay rate (very slow)
+- `composter333decay5000` → 5000% decay rate (50x faster!)
+
+### How Decay Rates Work
+
+The percentage modifies the base decay rate:
+
+```lua
+-- Normal stash (no modifier): 100% decay
+decayRate = 100 / (itemDecay * 60)
+
+-- Freezer (0% decay): No decay
+decayRate = (100 / (itemDecay * 60)) * 0.0  -- = 0
+
+-- Refrigerator (30% decay): Slower decay
+decayRate = (100 / (itemDecay * 60)) * 0.3  -- 30% of normal
+
+-- Composter (5000% decay): Faster decay
+decayRate = (100 / (itemDecay * 60)) * 50.0  -- 50x faster
+```
+
+### Practical Examples
+
+#### Example 1: Freezer (No Decay)
+
+```lua
+-- SERVER SIDE
+-- Create a freezer stash with 0% decay
+RegisterNetEvent('house:server:openFreezer', function(houseId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local freezerId = 'freezer_'.. houseId ..'_decay0'  -- 0% decay
+
+    exports['rsg-inventory']:OpenInventory(src, freezerId, {
+        label = 'Freezer',
+        maxweight = 50000,
+        slots = 20
+    })
+end)
+```
+
+**Result**: Items in this stash never decay (perfect for long-term storage)
+
+#### Example 2: Refrigerator (Slow Decay)
+
+```lua
+-- SERVER SIDE
+-- Create a refrigerator with 20% decay rate
+RegisterNetEvent('house:server:openFridge', function(houseId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local fridgeId = 'fridge_'.. houseId ..'_decay20'  -- 20% decay
+
+    exports['rsg-inventory']:OpenInventory(src, fridgeId, {
+        label = 'Refrigerator',
+        maxweight = 30000,
+        slots = 15
+    })
+end)
+```
+
+**Result**: Items decay at 20% of normal rate
+- Normal bread lasts 5 hours
+- Bread in fridge lasts 25 hours (5 ÷ 0.20)
+
+#### Example 3: Root Cellar (Moderate Decay)
+
+```lua
+-- SERVER SIDE
+-- Root cellar with 50% decay (moderate preservation)
+RegisterNetEvent('house:server:openCellar', function(houseId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local cellarId = 'cellar_'.. houseId ..'_decay50'  -- 50% decay
+
+    exports['rsg-inventory']:OpenInventory(src, cellarId, {
+        label = 'Root Cellar',
+        maxweight = 40000,
+        slots = 25
+    })
+end)
+```
+
+**Result**: Items decay at 50% of normal rate
+- Normal bread lasts 5 hours
+- Bread in cellar lasts 10 hours
+
+#### Example 4: Composter (Accelerated Decay)
+
+```lua
+-- SERVER SIDE
+-- Composter that rapidly breaks down organic matter
+RegisterNetEvent('farming:server:openComposter', function(composterId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local stashId = 'composter_'.. composterId ..'_decay5000'  -- 5000% decay
+
+    exports['rsg-inventory']:OpenInventory(src, stashId, {
+        label = 'Composter',
+        maxweight = 10000,
+        slots = 10
+    })
+end)
+```
+
+**Result**: Items decay 50x faster than normal
+- Normal bread takes 5 hours to decay
+- Bread in composter decays in 6 minutes (5 hours ÷ 50)
+- Use for converting organic matter to compost quickly
+
+#### Example 5: Dynamic Decay Rates
+
+```lua
+-- SERVER SIDE
+-- Gang stash with decay rate based on upgrades
+RegisterNetEvent('gang:server:openStash', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local gang = Player.PlayerData.gang.name
+    if gang == 'none' then return end
+
+    -- Check gang upgrades from database
+    local result = MySQL.query.await('SELECT * FROM gang_upgrades WHERE gangname = ?', { gang })
+    local decayRate = 100  -- Default: normal decay
+
+    if result and result[1] then
+        if result[1].has_freezer then
+            decayRate = 0  -- Freezer upgrade
+        elseif result[1].has_cooler then
+            decayRate = 30  -- Cooler upgrade
+        end
+    end
+
+    local stashId = 'gang_'.. gang ..'_decay'.. decayRate
+
+    exports['rsg-inventory']:OpenInventory(src, stashId, {
+        label = gang ..' Gang Stash',
+        maxweight = 500000,
+        slots = 50
+    })
+end)
+```
+
+### Decay Rate Comparison Table
+
+| Storage Type | Decay % | Multiplier | Example (5h item) | Use Case |
+|--------------|---------|------------|-------------------|----------|
+| Normal Stash | 100% | 1.0 | 5 hours | Default storage |
+| Root Cellar | 50% | 0.5 | 10 hours | Moderate preservation |
+| Cooler | 30% | 0.3 | 16.7 hours | Good preservation |
+| Refrigerator | 20% | 0.2 | 25 hours | Better preservation |
+| Ice Box | 10% | 0.1 | 50 hours | Excellent preservation |
+| Freezer | 0% | 0.0 | Never | Perfect preservation |
+| Warm Room | 200% | 2.0 | 2.5 hours | Faster decay |
+| Composter | 5000% | 50.0 | 6 minutes | Very fast decay |
+
+<Warning>
+Decay rate modifiers are parsed from the stash identifier. Changing the identifier requires moving items to the new stash name!
+</Warning>
+
+---
+
+## Decay Rate Guidelines
+
+### Fast Decay (Perishables)
+
+**Use for**: Fresh food, organic materials, perishable goods
+
+```lua
+-- Fresh meat - spoils in 1 hour
+['fresh_meat'] = {
+    name = 'fresh_meat',
+    label = 'Fresh Meat',
+    weight = 500,
+    type = 'item',
+    decay = 60,         -- 1 hour
+    delete = true,
+    description = 'Freshly butchered meat, spoils quickly'
+},
+
+-- Fresh fish - spoils in 30 minutes
+['fresh_fish'] = {
+    name = 'fresh_fish',
+    label = 'Fresh Fish',
+    weight = 300,
+    type = 'item',
+    decay = 30,         -- 30 minutes
+    delete = true,
+    description = 'Freshly caught fish'
+},
+
+-- Milk - spoils in 2 hours
+['milk'] = {
+    name = 'milk',
+    label = 'Fresh Milk',
+    weight = 500,
+    type = 'item',
+    decay = 120,        -- 2 hours
+    delete = true,
+    description = 'Fresh cow milk'
+},
+```
+
+### Medium Decay (Cooked Food)
+
+**Use for**: Prepared meals, baked goods, processed food
+
+```lua
+-- Bread - lasts 5 hours
+['bread'] = {
+    name = 'bread',
+    label = 'Bread',
+    weight = 100,
+    type = 'item',
+    decay = 300,        -- 5 hours
+    delete = true,
+    description = 'Fresh baked bread'
+},
+
+-- Cooked meat - lasts 8 hours
+['cooked_meat'] = {
+    name = 'cooked_meat',
+    label = 'Cooked Meat',
+    weight = 400,
+    type = 'item',
+    decay = 480,        -- 8 hours
+    delete = true,
+    description = 'Properly cooked meat'
+},
+
+-- Stew - lasts 12 hours
+['stew'] = {
+    name = 'stew',
+    label = 'Hearty Stew',
+    weight = 600,
+    type = 'item',
+    decay = 720,        -- 12 hours
+    delete = true,
+    description = 'Hot stew in a bowl'
+},
+```
+
+### Slow Decay (Durables)
+
+**Use for**: Tools, medicine, preserved goods
+
+```lua
+-- Bandage - lasts 48 hours
+['bandage'] = {
+    name = 'bandage',
+    label = 'Bandage',
+    weight = 50,
+    type = 'item',
+    decay = 2880,       -- 48 hours
+    delete = false,     -- Keep degraded bandage
+    description = 'Medical bandage'
+},
+
+-- Pickaxe - degrades over 7 days
+['pickaxe'] = {
+    name = 'pickaxe',
+    label = 'Pickaxe',
+    weight = 2000,
+    type = 'item',
+    decay = 10080,      -- 7 days (168 hours)
+    delete = false,     -- Don't delete broken tool
+    description = 'Mining pickaxe'
+},
+
+-- Canned food - lasts 30 days
+['canned_beans'] = {
+    name = 'canned_beans',
+    label = 'Canned Beans',
+    weight = 300,
+    type = 'item',
+    decay = 43200,      -- 30 days
+    delete = true,
+    description = 'Preserved beans in a can'
+},
+```
+
+### No Decay (Permanent)
+
+**Use for**: Money, valuables, crafting materials, tools
+
+```lua
+-- No decay property = never degrades
+['gold_bar'] = {
+    name = 'gold_bar',
+    label = 'Gold Bar',
+    weight = 1000,
+    type = 'item',
+    -- No decay property
+    description = 'Pure gold bar'
+},
+
+['dollar'] = {
+    name = 'dollar',
+    label = 'Dollars',
+    weight = 1,
+    type = 'item',
+    -- Money never decays
+    description = 'US Dollar'
+},
+```
+
+---
+
+## Quality Metadata
+
+### Item Info Structure
+
+Every item with decay has quality tracking in its `info` table:
+
+```lua
+{
+    name = 'bread',
+    amount = 5,
+    slot = 3,
+    info = {
+        quality = 85,           -- Current quality percentage (0-100)
+        lastUpdate = 1704067200 -- Unix timestamp (os.time())
+    }
+}
+```
+
+### Initial Quality Assignment
+
+When items are added without quality info, the system initializes it automatically:
+
+```lua
+-- SERVER SIDE
+-- Item added without quality info
+exports['rsg-inventory']:AddItem(source, 'bread', 1, nil, nil, 'purchase')
+
+-- System automatically sets:
+item.info = {
+    quality = 100,          -- Starts at perfect condition
+    lastUpdate = os.time()  -- Current timestamp
+}
+```
+
+### Manual Quality Setting
+
+```lua
+-- SERVER SIDE
+-- Add item with specific quality
+local itemInfo = {
+    quality = 50,           -- Starts at 50% quality
+    lastUpdate = os.time()
+}
+
+exports['rsg-inventory']:AddItem(source, 'bread', 1, nil, itemInfo, 'found')
+```
+
+---
+
+## Decay Functions
+
+### CheckItemDecay
+
+Manually check and update an item's decay.
+
+```lua
+Inventory.CheckItemDecay(item, itemInfo, currentTime, decayRateModifier)
+```
+
+**Parameters**:
+- `item` (table) - Item object with info table
+- `itemInfo` (table|nil) - Item definition from RSGCore.Shared.Items (optional)
+- `currentTime` (number|nil) - Unix timestamp (optional, defaults to os.time())
+- `decayRateModifier` (number|nil) - Decay rate multiplier (optional, defaults to 1.0)
+
+**Returns**:
+- `shouldUpdate` (boolean) - Whether item metadata was changed
+- `newQuality` (number|nil) - New quality value after decay
+- `shouldDelete` (boolean) - Whether item should be removed
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+local breadItem = exports['rsg-inventory']:GetItemByName(source, 'bread')
+
+if breadItem then
+    local updated, quality, shouldDelete = Inventory.CheckItemDecay(breadItem)
+
+    if updated then
+        print('Bread quality updated to: '.. math.floor(quality) ..'%')
+
+        if shouldDelete and quality <= 0 then
+            print('Bread has spoiled and will be removed')
+            exports['rsg-inventory']:RemoveItem(source, 'bread', 1, breadItem.slot, 'spoiled')
+        end
+    end
+end
+```
+
+### CheckPlayerItemsDecay
+
+Check and update all items in a player's inventory.
+
+```lua
+Inventory.CheckPlayerItemsDecay(player)
+```
+
+**Parameters**:
+- `player` (table) - Player object from RSGCore.Functions.GetPlayer
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+RegisterCommand('checkdecay', function(source)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    Inventory.CheckPlayerItemsDecay(Player)
+
+    TriggerClientEvent('ox_lib:notify', source, {
+        description = 'Checked all items for decay',
+        type = 'info'
+    })
+end, false)
+```
+
+<Info>
+This function is automatically called when inventory is loaded. Manual calls are rarely needed.
+</Info>
+
+### CheckItemsDecay
+
+Check decay for a table of items (for stashes, drops, etc.).
+
+```lua
+Inventory.CheckItemsDecay(items, decayRateModifier)
+```
+
+**Parameters**:
+- `items` (table) - Table of items indexed by slot
+- `decayRateModifier` (number|nil) - Decay rate multiplier (optional, defaults to 1.0)
+
+**Returns**:
+- `needsUpdate` (boolean) - Whether any items were updated
+- `removedItems` (table) - Table of items that should be deleted
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local stashItems = exports['rsg-inventory']:GetInventory('gang_odriscoll')
+
+if stashItems and stashItems.items then
+    local needsUpdate, removedItems = Inventory.CheckItemsDecay(stashItems.items)
+
+    if needsUpdate then
+        print('Stash items were updated')
+
+        -- Remove spoiled items
+        for slot, item in pairs(removedItems) do
+            print('Removed spoiled '.. item.name ..' from slot '.. slot)
+            stashItems.items[slot] = nil
+        end
+
+        -- Save stash
+        exports['rsg-inventory']:SaveStash('gang_odriscoll')
+    end
+end
+```
+
+---
+
+## Decay Timing
+
+### When Decay is Calculated
+
+Decay calculations happen automatically at these times:
+
+1. **Player Login** - All inventory items checked when player loads
+2. **Inventory Open** - Items checked when opening inventory UI
+3. **Item Use** - Individual item checked before use callback
+4. **Stash Open** - Stash items checked when accessed
+5. **Drop Pickup** - Ground drop items checked when picked up
+
+### Decay Check Flow
+
+```lua
+-- Pseudocode of automatic decay checking
+function OnInventoryLoad(player)
+    for slot, item in pairs(player.items) do
+        if item.decay then
+            CheckItemDecay(item)
+
+            if item.info.quality <= 0 and item.delete then
+                RemoveItem(item)
+            end
+        end
+    end
+end
+```
+
+<Warning>
+Decay is calculated based on **real-world time**, not in-game time or playtime. Items continue to decay even when the server is offline!
+</Warning>
+
+---
+
+## Quality Thresholds and Effects
+
+### Recommended Quality Ranges
+
+```lua
+-- Quality classification
+if quality >= 75 then
+    -- Fresh / Excellent condition
+    -- Full effects, no penalties
+elseif quality >= 50 then
+    -- Good / Decent condition
+    -- Normal effects
+elseif quality >= 25 then
+    -- Poor / Degraded condition
+    -- Reduced effects
+elseif quality > 0 then
+    -- Very Poor / Nearly destroyed
+    -- Minimal effects, possible negative effects
+else
+    -- Destroyed (0%)
+    -- Item removed if delete = true
+end
+```
+
+### Example: Quality-Based Food Effects
+
+```lua
+-- SERVER SIDE
+RSGCore.Functions.CreateUseableItem('bread', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local quality = item.info.quality or 100
+    local hungerRestore = 0
+    local healthEffect = 0
+
+    -- Fresh bread (75-100%)
+    if quality >= 75 then
+        hungerRestore = 25
+        healthEffect = 5  -- Small health bonus
+
+    -- Decent bread (50-74%)
+    elseif quality >= 50 then
+        hungerRestore = 20
+        healthEffect = 0
+
+    -- Stale bread (25-49%)
+    elseif quality >= 25 then
+        hungerRestore = 10
+        healthEffect = -5  -- Mild stomach ache
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'This bread tastes stale',
+            type = 'warning'
+        })
+
+    -- Moldy bread (1-24%)
+    elseif quality > 0 then
+        hungerRestore = 5
+        healthEffect = -15  -- Food poisoning
+
+        -- 50% chance of getting sick
+        if math.random(100) <= 50 then
+            Player.Functions.SetMetaData('stress', math.min(100, Player.PlayerData.metadata.stress + 10))
+            TriggerClientEvent('ox_lib:notify', source, {
+                description = 'The spoiled bread made you sick!',
+                type = 'error'
+            })
+        end
+    else
+        -- Quality is 0, shouldn't reach here as item would be deleted
+        return
+    end
+
+    -- Apply effects
+    if exports['rsg-inventory']:RemoveItem(source, 'bread', 1, item.slot, 'consumed') then
+        Player.Functions.SetMetaData('hunger', math.min(100, Player.PlayerData.metadata.hunger + hungerRestore))
+
+        if healthEffect ~= 0 then
+            local currentHealth = Player.PlayerData.metadata.health
+            Player.Functions.SetMetaData('health', math.max(0, math.min(600, currentHealth + healthEffect)))
+        end
+
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'You ate bread (Quality: '.. math.floor(quality) ..'%)',
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Example: Tool Durability
+
+```lua
+-- SERVER SIDE
+-- Pickaxe effectiveness based on quality
+RegisterNetEvent('mining:server:minOre', function(oreType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check for pickaxe
+    local pickaxe = exports['rsg-inventory']:GetItemByName(src, 'pickaxe')
+    if not pickaxe then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'You need a pickaxe',
+            type = 'error'
+        })
+        return
+    end
+
+    local quality = pickaxe.info.quality or 100
+
+    -- Tool broken
+    if quality <= 0 then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Your pickaxe is broken!',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Success chance based on quality
+    local baseChance = 70
+    local qualityBonus = (quality / 100) * 30  -- Up to 30% bonus
+    local successChance = baseChance + qualityBonus
+
+    if math.random(100) <= successChance then
+        -- Success - give ore
+        local oreAmount = math.random(1, 3)
+        exports['rsg-inventory']:AddItem(src, oreType, oreAmount, nil, nil, 'mining')
+
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'You mined '.. oreAmount ..'x '.. oreType,
+            type = 'success'
+        })
+    else
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Mining failed',
+            type = 'error'
+        })
+    end
+
+    -- Degrade tool slightly
+    pickaxe.info.quality = math.max(0, quality - 1)
+    pickaxe.info.lastUpdate = os.time()
+    Player.Functions.SetPlayerData('items', Player.PlayerData.items)
+end)
+```
+
+---
+
+## Common Use Cases
+
+### Example 1: Portable Cooler with Decay Rate
+
+```lua
+-- SERVER SIDE
+-- Portable cooler with 30% decay rate
+RSGCore.Functions.CreateUseableItem('cooler', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    -- Use decay rate in stash ID
+    local coolerId = 'cooler_'.. Player.PlayerData.citizenid ..'_decay30'
+
+    exports['rsg-inventory']:OpenInventory(source, coolerId, {
+        label = 'Portable Cooler',
+        maxweight = 10000,
+        slots = 10
+    })
+end)
+```
+
+**Result**: Items in portable cooler decay at 30% of normal rate (built-in system handles it automatically!)
+
+**Before v2.7.3**: Required complex manual timestamp resetting
+**After v2.7.3**: Just add `_decay30` to the stash ID!
+
+### Example 2: Quality-Based Pricing
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('shop:server:sellItem', function(itemName, slot)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local item = Player.PlayerData.items[slot]
+    if not item or item.name ~= itemName then return end
+
+    local basePrice = 10
+    local quality = item.info.quality or 100
+    local priceMultiplier = quality / 100
+
+    local finalPrice = math.floor(basePrice * priceMultiplier)
+
+    -- Refuse items below 10% quality
+    if quality < 10 then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'This item is too damaged to sell',
+            type = 'error'
+        })
+        return
+    end
+
+    if exports['rsg-inventory']:RemoveItem(src, itemName, 1, slot, 'sold-to-shop') then
+        Player.Functions.AddMoney('cash', finalPrice, 'item-sale')
+
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Sold for $'.. finalPrice ..' (Quality: '.. math.floor(quality) ..'%)',
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Example 3: Repair System
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('repair:server:repairItem', function(slot)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local item = Player.PlayerData.items[slot]
+    if not item then return end
+
+    local itemInfo = RSGCore.Shared.Items[item.name:lower()]
+    if not itemInfo or not itemInfo.decay then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'This item cannot be repaired',
+            type = 'error'
+        })
+        return
+    end
+
+    local currentQuality = item.info.quality or 100
+
+    if currentQuality >= 100 then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'This item is already in perfect condition',
+            type = 'info'
+        })
+        return
+    end
+
+    local repairCost = math.floor((100 - currentQuality) * 0.5)
+
+    if Player.Functions.GetMoney('cash') < repairCost then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Not enough money (need $'.. repairCost ..')',
+            type = 'error'
+        })
+        return
+    end
+
+    if Player.Functions.RemoveMoney('cash', repairCost, 'item-repair') then
+        item.info.quality = 100
+        item.info.lastUpdate = os.time()
+
+        Player.Functions.SetPlayerData('items', Player.PlayerData.items)
+
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Repaired '.. item.label ..' for $'.. repairCost,
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Example 4: Preservation Items
+
+```lua
+-- SERVER SIDE
+-- Salt preserves meat, doubling its decay time
+RSGCore.Functions.CreateUseableItem('salt', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    -- Check for meat in inventory
+    local meat = exports['rsg-inventory']:GetItemByName(source, 'fresh_meat')
+    if not meat then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'You need fresh meat to preserve',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Remove salt and meat
+    if exports['rsg-inventory']:RemoveItem(source, 'salt', 1, item.slot, 'used-for-preservation') then
+        if exports['rsg-inventory']:RemoveItem(source, 'fresh_meat', 1, meat.slot, 'preserved') then
+            -- Give preserved meat with better quality retention
+            local preservedInfo = {
+                quality = meat.info.quality or 100,
+                lastUpdate = os.time(),
+                preserved = true  -- Custom flag
+            }
+
+            exports['rsg-inventory']:AddItem(source, 'preserved_meat', 1, nil, preservedInfo, 'preservation')
+
+            TriggerClientEvent('ox_lib:notify', source, {
+                description = 'You preserved the meat with salt',
+                type = 'success'
+            })
+        end
+    end
+end)
+
+-- Preserved meat (in shared/items.lua)
+['preserved_meat'] = {
+    name = 'preserved_meat',
+    label = 'Preserved Meat',
+    weight = 500,
+    type = 'item',
+    decay = 480,        -- 8 hours instead of 1 hour
+    delete = true,
+    description = 'Salted meat that lasts longer'
+},
+```
+
+### Example 5: Visual Quality Indicators (Client)
+
+```lua
+-- CLIENT SIDE
+-- Show quality color in inventory tooltip
+RegisterNetEvent('inventory:client:showItemInfo', function(item)
+    local quality = item.info and item.info.quality or 100
+    local color = GetQualityColor(quality)
+    local label = GetQualityLabel(quality)
+
+    -- Send to NUI
+    SendNUIMessage({
+        action = 'showTooltip',
+        item = item.label,
+        quality = math.floor(quality),
+        qualityColor = color,
+        qualityLabel = label,
+        description = item.description
+    })
+end)
+
+function GetQualityColor(quality)
+    if quality >= 75 then return '#00ff00' end  -- Green
+    if quality >= 50 then return '#ffff00' end  -- Yellow
+    if quality >= 25 then return '#ff9900' end  -- Orange
+    return '#ff0000'  -- Red
+end
+
+function GetQualityLabel(quality)
+    if quality >= 75 then return 'Fresh' end
+    if quality >= 50 then return 'Decent' end
+    if quality >= 25 then return 'Poor' end
+    return 'Spoiled'
+end
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Balance decay times carefully**: Too fast = frustrating, too slow = no gameplay impact
+</Tip>
+
+<Warning>
+**Don't make everything decay**: Only perishables, consumables, and tools should have decay
+</Warning>
+
+<Check>
+**Provide preservation options**: Give players ways to maintain items (coolers, repair, preservation)
+</Check>
+
+### Design Guidelines
+
+**Decay Time Recommendations**:
+1. **Perishables (Fresh Food)**: 30 minutes - 2 hours
+2. **Cooked Food**: 4 - 12 hours
+3. **Preserved Food**: 24 - 72 hours
+4. **Medicine/Consumables**: 24 - 48 hours
+5. **Tools/Equipment**: 3 - 7 days
+6. **Valuables**: No decay (gold, jewelry, money)
+7. **Weapons**: Use rsg-weapons durability instead
+
+### Testing Decay
+
+```lua
+-- Admin command to simulate time passage
+RegisterCommand('testdecay', function(source, args)
+    if not RSGCore.Functions.HasPermission(source, 'admin') then return end
+
+    local hoursAhead = tonumber(args[1]) or 1
+    local secondsAhead = hoursAhead * 3600
+
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    -- Simulate time passage
+    for slot, item in pairs(Player.PlayerData.items) do
+        if item.info and item.info.lastUpdate then
+            item.info.lastUpdate = item.info.lastUpdate - secondsAhead
+        end
+    end
+
+    -- Recalculate decay
+    Inventory.CheckPlayerItemsDecay(Player)
+
+    TriggerClientEvent('ox_lib:notify', source, {
+        description = 'Simulated '.. hoursAhead ..' hours of decay',
+        type = 'info'
+    })
+end, false)
+```
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Items not decaying" defaultOpen={false}>
+    **Possible causes**:
+    - Item doesn't have `decay` property in shared/items.lua
+    - `info.lastUpdate` is missing (should auto-initialize)
+    - Decay check functions aren't being called
+
+    **Solution**: Verify item definition and ensure CheckItemDecay is called
+  </Accordion>
+
+  <Accordion title="Items decaying too fast/slow" defaultOpen={false}>
+    **Possible causes**:
+    - Incorrect `decay` value (remember: it's in minutes)
+    - Server time issues or clock skew
+
+    **Solution**:
+    - Review decay value: `decay = 60` means 1 hour
+    - Use admin test command to verify decay rates
+  </Accordion>
+
+  <Accordion title="Items not deleting at 0%" defaultOpen={false}>
+    **Possible causes**:
+    - `delete = false` or missing in item definition
+    - Items not being checked for decay
+
+    **Solution**: Set `delete = true` and ensure decay checks run on inventory load
+  </Accordion>
+
+  <Accordion title="Quality showing wrong values" defaultOpen={false}>
+    **Possible causes**:
+    - Quality stored as decimal but displayed incorrectly
+    - lastUpdate timestamp is invalid
+
+    **Solution**:
+    - Use `math.floor(quality)` for display
+    - Verify lastUpdate is a valid Unix timestamp (os.time())
+  </Accordion>
+
+  <Accordion title="Offline decay behavior" defaultOpen={false}>
+    **Configuration**: Check `Config.ItemsDecayWhileOffline` in rsg-inventory
+
+    **When `true`** (v2.7.3+):
+    - Items decay based on real-world time
+    - Decay calculated when player logs back in
+    - Quality reflects total elapsed time
+
+    **When `false`** (recommended):
+    - Items only decay when player is online
+    - Decay timer pauses on disconnect
+    - Prevents offline spoilage
+  </Accordion>
+
+  <Accordion title="Stash decay rates not working" defaultOpen={false}>
+    **Possible causes**:
+    - Incorrect stash ID format (use `_decay30` or `-decay30`)
+    - Percentage value missing or malformed
+    - Using old inventory version (requires v2.7.3+)
+
+    **Solution**:
+    - Verify stash ID format: `stashname_decay{NUMBER}`
+    - Check inventory version in fxmanifest.lua
+    - Examples: `freezer_decay0`, `fridge-decay20`
+  </Accordion>
+
+  <Accordion title="Default metadata not applying" defaultOpen={false}>
+    **Possible causes**:
+    - Item definition missing `info` table
+    - Using old rsg-core/rsg-inventory version
+    - Manually providing info that overrides defaults
+
+    **Solution**:
+    - Add `info = { key = value }` to item definition
+    - Update to rsg-inventory v2.7.3+
+    - Remember: Provided info merges with defaults
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Technical Details
+
+### Implementation Location
+
+Decay functions are implemented in:
+- `rsg-inventory/server/functions.lua` - Core decay calculation logic
+- `rsg-inventory/shared/helpers.lua` - `Helpers.ParseDecayRate()` function
+- `rsg-inventory/server/exports.lua` - Default metadata merging
+- `rsg-inventory/shared/config.lua` - `ItemsDecayWhileOffline` setting
+
+### Decay Rate Parsing
+
+```lua
+-- Helper function from shared/helpers.lua
+Helpers.ParseDecayRate = function(name)
+    local num = name and string.match(name:lower(), "decay(%d+)")
+    return num and (tonumber(num) / 100) or false
+end
+
+-- Examples:
+Helpers.ParseDecayRate("freezer_decay0")     -- Returns: 0.0
+Helpers.ParseDecayRate("fridge-decay30")     -- Returns: 0.3
+Helpers.ParseDecayRate("composter_decay5000") -- Returns: 50.0
+Helpers.ParseDecayRate("normal_stash")       -- Returns: false (1.0 used as default)
+```
+
+### Default Metadata Merging
+
+```lua
+-- From server/exports.lua (AddItem function)
+local defaultInfo = itemInfo.info or {}
+info = lib.table.merge(defaultInfo, info, false)
+
+-- This merges item type defaults with provided metadata
+-- Provided values override defaults
+```
+
+### Database Storage
+
+Quality is stored in the `inventory` column as JSON:
+
+```sql
+-- players table
+inventory = '[
+    {
+        "name": "bread",
+        "amount": 1,
+        "slot": 1,
+        "info": {
+            "quality": 75,
+            "lastUpdate": 1704067200
+        }
+    }
+]'
+```
+
+### Performance Considerations
+
+- Decay calculations are O(1) per item
+- Only calculated when needed (not every frame)
+- Minimal performance impact even with many items
+- Database writes only on player save (every 5 minutes)
+- Stash decay rate parsing is cached (no repeated regex)
+
+### Version Compatibility
+
+| Feature | Min Version | Notes |
+|---------|-------------|-------|
+| Basic decay | v2.7.1+ | Original decay system |
+| Offline decay control | v2.7.3+ | `ItemsDecayWhileOffline` config |
+| Stash decay rates | v2.7.3+ | `_decay{NUM}` naming pattern |
+| Default metadata | v2.7.3+ | `info` table in item definitions |
+| Quality stacking fix | v2.7.3+ | UI prevents stacking different qualities |
+
+---
+
+## Next Steps
+
+- [Inventory Overview](/inventory/overview) - Complete inventory system guide
+- [Inventory Functions](/inventory/functions) - All inventory management functions
+- [Weapons System](/inventory/weapons) - Weapon durability (different from item decay)
+- [Item Configuration](/essentials/shared) - How to define items
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

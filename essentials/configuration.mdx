@@ -71,28 +71,37 @@ RSGConfig.Player.RevealMap = true
 
 ```lua
 RSGConfig.Money.MoneyTypes = {
-    cash = 50,
-    bank = 0,
-    valbank = 0,
-    rhobank = 0,
-    blkbank = 0,
-    armbank = 0,
-    bloodmoney = 0
+    cash = 50,          -- Starting cash
+    bank = 0,           -- ⚠️ DEPRECATED - kept at 0
+    valbank = 0,        -- Valentine Bank
+    rhobank = 0,        -- Rhodes Bank
+    blkbank = 0,        -- Blackwater Bank
+    armbank = 0,        -- Armadillo Bank
+    bloodmoney = 0      -- Illegal money
 }
 ```
 
 * Defines all money types and their starting amounts
-* **cash**: Physical money in player's pocket
-* **bank**: General bank account (deprecated, use town banks)
+* **cash**: Physical money in player's pocket (can be dropped/stolen)
+* **bank**: ⚠️ **DEPRECATED** - Legacy bank account (set to 0, use location-specific banks)
 * **valbank**: Valentine Bank account
 * **rhobank**: Rhodes Bank account
 * **blkbank**: Blackwater Bank account
 * **armbank**: Armadillo Bank account
-* **bloodmoney**: Illegal money for criminal activities
+* **bloodmoney**: Illegal money for criminal activities (physical item when EnableMoneyItems is true)
 
 <Warning>
-Once you add a money type, it will NOT be automatically removed from existing player data in the database!
+The `bank` money type is **DEPRECATED**. Always use location-specific banks (valbank, rhobank, blkbank, armbank) instead!
 </Warning>
+
+<Info>
+When `EnableMoneyItems = true`, cash and bloodmoney become physical inventory items that can be dropped, traded, or stolen.
+</Info>
+
+**Why Multiple Banks?**
+- **Realism**: Players must travel to specific towns to access accounts
+- **Gameplay**: Creates opportunities for bank robberies and escorts
+- **Risk**: Traveling with cash adds danger and roleplay opportunities
 
 ### Don't Allow Minus
 
@@ -258,12 +267,30 @@ metadata = {
 #### Inventory Defaults
 
 ```lua
-weight = 35000,
-slots = 25,
+weight = 35000,  -- Player default weight (35kg)
+slots = 25,      -- Player default slots
 ```
 
-* **weight**: Maximum carry weight (35kg = 35000)
-* **slots**: Number of inventory slots
+* **weight**: Maximum carry weight for new players (35kg = 35000 grams)
+* **slots**: Number of inventory slots for new players
+
+<Warning>
+**Player Defaults vs Inventory Limits**: These are starting values for players. The actual inventory system limits are configured in `rsg-inventory/shared/config.lua`:
+- `MaxWeight = 120000` (120kg maximum)
+- `MaxSlots = 40` (40 slots maximum)
+</Warning>
+
+**Inventory Configuration Hierarchy**:
+1. **Player Defaults** (`rsg-core/config.lua`) - Starting values for new characters
+2. **Inventory Limits** (`rsg-inventory/shared/config.lua`) - System-wide maximums
+3. **Player-Specific** - Can be modified per player via `Player.Functions.SetPlayerData()`
+
+```lua
+-- Example: Give player more inventory space
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetPlayerData('weight', 50000)  -- Up to 50kg (still under 120kg max)
+Player.Functions.SetPlayerData('slots', 35)       -- Up to 35 slots (still under 40 max)
+```
 
 ---
 

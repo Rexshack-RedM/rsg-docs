@@ -1,7 +1,45 @@
 ---
 title: "📊 Player Data"
-description: "Learn how to access and modify a player's data"
+description: "Complete guide to accessing and modifying player data in RSG Framework"
 ---
+
+## Introduction
+
+The Player Data system is the heart of RSG Framework's player management. It handles all player information including character data, jobs, gangs, money, metadata, and inventory. Understanding this system is essential for creating resources that interact with players.
+
+**Location**: `resources/[framework]/rsg-core/server/player.lua`
+
+<Info>
+Player data is automatically saved to the database at intervals defined in config (`UpdateInterval`), and on logout.
+</Info>
+
+---
+
+## Core Features
+
+### 📋 Comprehensive Data Management
+
+- **Character Info**: Names, birthdate, gender, nationality
+- **Money System**: Multiple currency types with transaction logging
+- **Jobs & Gangs**: Full hierarchy system with grades and boss status
+- **Metadata**: Health, hunger, thirst, stress, and custom data
+- **Reputation**: Flexible reputation system for any activity
+
+### 🔄 Real-time Synchronization
+
+- **StateBags**: Instant sync for frequently updated data
+- **Events**: Server and client events for data changes
+- **Auto-save**: Periodic database persistence
+
+### ⚙️ Flexible API
+
+- **Player Functions**: Comprehensive function set for data manipulation
+- **Direct Access**: Read player data directly from PlayerData table
+- **Extension**: Add custom methods and fields dynamically
+
+---
+
+## Core Server Functions
 
 ### RSGCore.Player.Login
 
@@ -621,15 +659,20 @@ end
 
 ```lua
 function Player.Functions.AddRep(rep, amount)
-    -- Adds reputation points
+    -- Adds reputation points to metadata.rep[rep]
 end
 
 -- Example
 
 local Player = RSGCore.Functions.GetPlayer(source)
-Player.Functions.AddRep('hunting', 10) -- Add 10 hunting rep
-Player.Functions.AddRep('fishing', 5) -- Add 5 fishing rep
+Player.Functions.AddRep('hunting', 10)   -- Add 10 hunting rep
+Player.Functions.AddRep('fishing', 5)    -- Add 5 fishing rep
+Player.Functions.AddRep('lawman', 25)    -- Add 25 lawman rep
 ```
+
+<Info>
+**Reputation System**: The framework includes a flexible reputation system stored in `metadata.rep`. You can create any reputation types you need (hunting, fishing, crafting, lawman, outlaw, etc.)
+</Info>
 
 ### Player.Functions.RemoveRep
 
@@ -644,6 +687,9 @@ end
 
 local Player = RSGCore.Functions.GetPlayer(source)
 Player.Functions.RemoveRep('hunting', 5) -- Remove 5 hunting rep
+
+-- Reputation is clamped at 0 (won't go negative)
+Player.Functions.RemoveRep('lawman', 1000) -- If player has 50, it goes to 0, not -950
 ```
 
 ### Player.Functions.GetRep
@@ -652,7 +698,7 @@ Player.Functions.RemoveRep('hunting', 5) -- Remove 5 hunting rep
 
 ```lua
 function Player.Functions.GetRep(rep)
-    return amount
+    return amount  -- Returns 0 if reputation type doesn't exist
 end
 
 -- Example
@@ -661,7 +707,70 @@ local Player = RSGCore.Functions.GetPlayer(source)
 local huntingRep = Player.Functions.GetRep('hunting')
 if huntingRep >= 100 then
     print('Player is a master hunter!')
+    -- Give special rewards or unlock content
 end
+
+-- Check multiple reputations
+local totalRep = 0
+totalRep = totalRep + Player.Functions.GetRep('hunting')
+totalRep = totalRep + Player.Functions.GetRep('fishing')
+totalRep = totalRep + Player.Functions.GetRep('crafting')
+print('Player total rep: '.. totalRep)
+```
+
+**Common Reputation Types**:
+- `hunting` - Tracking, animal kills, perfect pelts
+- `fishing` - Fish caught, legendary fish
+- `crafting` - Items crafted, quality of work
+- `lawman` - Criminal arrests, bounties collected
+- `outlaw` - Crimes committed, bounties escaped
+- `trader` - Goods sold, trading reputation
+- `doctor` - Patients healed, medical services
+- Custom types as needed for your server
+
+**Reputation Use Cases**:
+
+```lua
+-- Grant bonuses based on reputation
+RegisterNetEvent('hunting:server:sellPelt', function(peltType, quality)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local huntingRep = Player.Functions.GetRep('hunting')
+    local basePrice = 10
+    local repBonus = math.floor(huntingRep / 10) -- 1% bonus per 10 rep
+
+    local finalPrice = basePrice + (basePrice * repBonus / 100)
+
+    Player.Functions.AddMoney('cash', finalPrice, 'pelt-sale')
+    Player.Functions.AddRep('hunting', 2) -- Gain rep for selling
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        description = 'Sold pelt for $'.. finalPrice ..' (+' .. repBonus ..'% rep bonus)',
+        type = 'success'
+    })
+end)
+
+-- Lock content behind reputation requirements
+RegisterNetEvent('shop:server:buySpecialItem', function(itemName)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local requiredRep = 50
+    local playerRep = Player.Functions.GetRep('trader')
+
+    if playerRep < requiredRep then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Requires '.. requiredRep ..' trader reputation (you have '.. playerRep ..')',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process purchase...
+end)
 ```
 
 ### Player.Functions.HasItem
@@ -801,3 +910,327 @@ local license = Player.PlayerData.license
 local name = Player.PlayerData.name
 local source = Player.PlayerData.source
 ```
+
+---
+
+## StateBags System
+
+The RSG Framework uses FiveM's StateBags system to sync specific metadata between server and client in real-time. This provides better performance than constantly triggering events.
+
+### What are StateBags?
+
+StateBags are key-value stores attached to entities (players, vehicles, etc.) that automatically sync between server and client. They're more efficient than events for frequently updated data.
+
+**Synced Metadata Keys**:
+- `hunger` (0-100)
+- `thirst` (0-100)
+- `cleanliness` (0-100)
+- `stress` (0-100)
+- `health` (0-600)
+- `isLoggedIn` (boolean)
+
+### How StateBags Work
+
+```lua
+-- SERVER SIDE - Automatically synced on player load
+function Player.Functions.InitializeStateBags()
+    local metadata = self.PlayerData.metadata
+    local keys = { "hunger", "thirst", "cleanliness", "stress", "health" }
+
+    local state = Player(self.PlayerData.source).state
+    for _, key in ipairs(keys) do
+        if metadata[key] ~= nil then
+            state[key] = metadata[key]  -- Automatically syncs to client
+        end
+    end
+end
+
+-- When player data saves, StateBags are persisted back to metadata
+function Player.Functions.PersistStateBags()
+    local metadata = {}
+    local keys = { "hunger", "thirst", "cleanliness", "stress", "health" }
+
+    local state = Player(self.PlayerData.source).state
+    for _, key in ipairs(keys) do
+        if state[key] ~= nil then
+            metadata[key] = state[key]
+        end
+    end
+
+    if next(metadata) then
+        self.Functions.SetMetaData(metadata)
+    end
+end
+```
+
+### Reading StateBags (Client-Side)
+
+```lua
+-- CLIENT SIDE
+-- Read player's own state
+local hunger = LocalPlayer.state.hunger
+local thirst = LocalPlayer.state.thirst
+local health = LocalPlayer.state.health
+
+if hunger < 20 then
+    print('You are very hungry!')
+end
+
+-- Watch for state changes
+AddStateBagChangeHandler('hunger', nil, function(bagName, key, value)
+    if bagName ~= ('player:%s'):format(GetPlayerServerId(PlayerId())) then return end
+    print('Your hunger changed to: '.. value)
+    -- Update UI, trigger effects, etc.
+end)
+
+-- Read another player's state
+local targetPlayerId = GetPlayerFromServerId(targetServerId)
+local targetState = Player(targetPlayerId).state
+local targetHunger = targetState.hunger
+```
+
+### Using StateBags in Resources
+
+```lua
+-- SERVER SIDE - Update state directly
+local state = Player(source).state
+state.hunger = 50  -- Automatically syncs to client
+
+-- Or use the player function (recommended)
+local Player = RSGCore.Functions.GetPlayer(source)
+Player.Functions.SetMetaData('hunger', 50)  -- This updates StateBag automatically
+
+-- CLIENT SIDE - React to state changes
+CreateThread(function()
+    while true do
+        Wait(1000)
+        local hunger = LocalPlayer.state.hunger or 100
+        local thirst = LocalPlayer.state.thirst or 100
+
+        if hunger < 20 then
+            -- Show hunger warning
+            -- Apply debuffs
+        end
+
+        if thirst < 20 then
+            -- Show thirst warning
+            -- Apply debuffs
+        end
+    end
+end)
+
+-- Listen for login state
+AddStateBagChangeHandler('isLoggedIn', nil, function(bagName, key, value)
+    if bagName ~= ('player:%s'):format(GetPlayerServerId(PlayerId())) then return end
+
+    if value then
+        print('Player is now logged in')
+        -- Initialize client-side systems
+    else
+        print('Player logged out')
+        -- Clean up client-side systems
+    end
+end)
+```
+
+### Benefits of StateBags
+
+<Check>
+**Performance**: No need to constantly trigger events for metadata updates
+</Check>
+
+<Check>
+**Real-time**: Changes sync instantly without event delays
+</Check>
+
+<Check>
+**Clean Code**: Access data directly instead of callback hell
+</Check>
+
+### When to Use StateBags vs Events
+
+**Use StateBags for:**
+- Frequently updated data (hunger, thirst, health)
+- Data that needs instant client access
+- Simple value syncing
+
+**Use Events for:**
+- Complex data updates
+- Actions that need validation
+- One-time notifications
+
+### Example: Custom HUD Using StateBags
+
+```lua
+-- CLIENT SIDE
+local function UpdateHUD()
+    local hunger = LocalPlayer.state.hunger or 100
+    local thirst = LocalPlayer.state.thirst or 100
+    local health = LocalPlayer.state.health or 600
+    local stress = LocalPlayer.state.stress or 0
+
+    -- Send to NUI
+    SendNUIMessage({
+        action = 'updateHud',
+        hunger = hunger,
+        thirst = thirst,
+        health = health,
+        stress = stress
+    })
+end
+
+-- Update HUD every second
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if LocalPlayer.state.isLoggedIn then
+            UpdateHUD()
+        end
+    end
+end)
+
+-- Also update immediately when states change
+AddStateBagChangeHandler('hunger', nil, function(bagName, key, value)
+    if bagName ~= ('player:%s'):format(GetPlayerServerId(PlayerId())) then return end
+    UpdateHUD()
+end)
+
+AddStateBagChangeHandler('thirst', nil, function(bagName, key, value)
+    if bagName ~= ('player:%s'):format(GetPlayerServerId(PlayerId())) then return end
+    UpdateHUD()
+end)
+```
+
+---
+
+## Complete Metadata Structure
+
+The full `metadata` table structure in PlayerData:
+
+```lua
+metadata = {
+    -- Basic Stats (synced via StateBags)
+    health = 600,               -- Player health (0-600, RedM scale)
+    hunger = 100,               -- Hunger level (0-100)
+    thirst = 100,               -- Thirst level (0-100)
+    cleanliness = 100,          -- Cleanliness level (0-100)
+    stress = 0,                 -- Stress level (0-100)
+
+    -- Status Flags
+    isdead = false,             -- Is player dead
+    ishandcuffed = false,       -- Is player handcuffed
+    armor = 0,                  -- Armor value
+
+    -- Jail System
+    injail = 0,                 -- Jail time remaining (minutes)
+    jailitems = {},             -- Items confiscated during arrest
+
+    -- Character Info
+    bloodtype = 'O+',           -- Blood type (randomly assigned)
+    fingerprint = 'AB123CD456', -- Unique fingerprint ID
+    walletid = 'WL789XY012',    -- Wallet ID
+    callsign = 'NO CALLSIGN',   -- Job callsign (for law/medic)
+
+    -- Criminal Record
+    criminalrecord = {
+        hasRecord = false,      -- Has criminal record
+        date = nil              -- Date of last offense
+    },
+
+    -- Reputation System
+    rep = {
+        hunting = 0,            -- Hunting reputation
+        fishing = 0,            -- Fishing reputation
+        -- Add custom reputation types as needed
+    },
+
+    -- Custom Status Effects
+    status = {},                -- Custom status effects table
+}
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Always Check Player Exists**: Before accessing player data, always verify the player object exists to prevent errors
+</Tip>
+
+```lua
+local Player = RSGCore.Functions.GetPlayer(source)
+if not Player then return end
+
+-- Now safe to use Player functions
+```
+
+<Warning>
+**Don't Modify PlayerData Directly**: Always use Player.Functions to modify data - this ensures events fire and data syncs properly
+</Warning>
+
+```lua
+-- Bad
+Player.PlayerData.money.cash = 1000
+
+-- Good
+Player.Functions.SetMoney('cash', 1000, 'admin-set')
+```
+
+<Check>
+**Use StateBags for HUDs**: For frequently updated display data (hunger, thirst, health), read from StateBags instead of triggering events
+</Check>
+
+### Performance Tips
+
+1. **Batch Updates**: When setting multiple metadata values, group them to reduce database writes
+2. **Cache Player Objects**: Store the Player object in a variable instead of calling GetPlayer multiple times
+3. **Use GetRep Sparingly**: If checking reputation frequently, cache the value locally
+4. **Avoid Save Spam**: Don't call Player.Functions.Save() excessively - let auto-save handle it
+
+### Common Patterns
+
+```lua
+-- Get player with validation
+local function GetValidPlayer(source)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Player data not loaded',
+            type = 'error'
+        })
+        return nil
+    end
+    return Player
+end
+
+-- Check job with grade
+local function HasJobWithMinGrade(source, jobName, minGrade)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return false end
+
+    return Player.PlayerData.job.name == jobName
+        and Player.PlayerData.job.grade.level >= minGrade
+end
+
+-- Check any law job
+local function IsLawEnforcement(source)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return false end
+
+    return Player.PlayerData.job.type == 'leo'
+end
+```
+
+---
+
+## Next Steps
+
+- [Server Functions Reference](/api-reference/endpoint/serverfunctionreference) - Complete server function list
+- [Configuration Guide](/essentials/configuration) - Configure player defaults
+- [Money System](/essentials/money-system) - Complete money system guide
+- [StateBags System](/essentials/statebags) - Deep dive into state synchronization
+- [Reputation System](/essentials/reputation) - Detailed reputation guide
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

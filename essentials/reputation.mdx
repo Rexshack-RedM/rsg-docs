@@ -1,0 +1,863 @@
+---
+title: "⭐ Reputation System"
+description: "Complete guide to the RSG Framework flexible reputation tracking system"
+---
+
+## Introduction
+
+The RSG Framework includes a built-in reputation system that allows you to track player progress, achievements, and standing across various activities. The system is completely flexible - you can create any reputation types you need for your server, from hunting skills to lawman standing.
+
+**Version**: 2.3.6+
+
+<Check>
+Reputation is stored in player metadata and persists across sessions. Create unlimited custom reputation types!
+</Check>
+
+---
+
+## Core Features
+
+### 🎯 Flexible Reputation Types
+
+- **Unlimited Types**: Create any reputation categories you need
+- **Server-Specific**: Define reputations that fit your gameplay
+- **Persistent Storage**: Saved in player metadata (database)
+- **Integer-Based**: Whole numbers from 0 to unlimited
+
+### 📊 Simple API
+
+- **Add Reputation**: Increase reputation points
+- **Remove Reputation**: Decrease reputation points (minimum 0)
+- **Get Reputation**: Check current reputation level
+- **No Maximum**: Reputation can grow indefinitely
+
+### 🔄 Common Use Cases
+
+- **Skill Tracking**: hunting, fishing, crafting, mining
+- **Faction Standing**: lawman, outlaw, trader reputation
+- **Activity Progress**: deliveries, arrests, bounties
+- **Social Standing**: town reputations, gang loyalty
+- **Achievement Systems**: milestones and progression
+
+---
+
+## How It Works
+
+### Reputation Storage
+
+Reputation is stored in `PlayerData.metadata.rep` as a key-value table:
+
+```lua
+PlayerData.metadata = {
+    -- ... other metadata
+    rep = {
+        hunting = 150,
+        fishing = 75,
+        lawman = 200,
+        outlaw = 0,
+        crafting = 50,
+        trading = 100
+        -- Add any custom types
+    }
+}
+```
+
+### Reputation Structure
+
+```lua
+-- Reputation table structure
+metadata.rep = {
+    [reputationType] = points  -- Integer value (0+)
+}
+
+-- Examples:
+metadata.rep.hunting = 150      -- 150 hunting reputation
+metadata.rep.fishing = 75       -- 75 fishing reputation
+metadata.rep.blacksmith = 200   -- 200 blacksmith reputation
+```
+
+### Data Flow
+
+```
+┌─────────────────────┐
+│  Player Action      │
+│  (Hunt animal)      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Server Event       │
+│  AddRep('hunting')  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Metadata Updated   │
+│  rep.hunting += 10  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Database Save      │
+│  (auto every 5min)  │
+└─────────────────────┘
+```
+
+---
+
+## Player Reputation Functions
+
+### Add Reputation
+
+Add reputation points to a specific type.
+
+```lua
+Player.Functions.AddRep(rep, amount)
+```
+
+**Parameters**:
+- `rep` (string) - Reputation type name
+- `amount` (number) - Points to add
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- Add hunting reputation
+Player.Functions.AddRep('hunting', 10)
+
+-- Add fishing reputation
+Player.Functions.AddRep('fishing', 5)
+
+-- Add custom reputation
+Player.Functions.AddRep('blacksmith', 15)
+Player.Functions.AddRep('doctor', 20)
+```
+
+<Info>
+Reputation types are created automatically when first used. No need to pre-define them!
+</Info>
+
+---
+
+### Remove Reputation
+
+Remove reputation points from a specific type.
+
+```lua
+Player.Functions.RemoveRep(rep, amount)
+```
+
+**Parameters**:
+- `rep` (string) - Reputation type name
+- `amount` (number) - Points to remove
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- Remove hunting reputation (penalty for poaching)
+Player.Functions.RemoveRep('hunting', 25)
+
+-- Remove lawman reputation (caught breaking law)
+Player.Functions.RemoveRep('lawman', 50)
+```
+
+<Warning>
+Reputation cannot go below 0. If you try to remove more than available, it will be set to 0.
+</Warning>
+
+**Behavior**:
+
+```lua
+-- Player has 30 lawman reputation
+Player.Functions.RemoveRep('lawman', 50)
+-- Result: lawman reputation = 0 (not -20)
+
+-- Player has 100 hunting reputation
+Player.Functions.RemoveRep('hunting', 25)
+-- Result: hunting reputation = 75
+```
+
+---
+
+### Get Reputation
+
+Get the current reputation points for a specific type.
+
+```lua
+Player.Functions.GetRep(rep)
+```
+
+**Parameters**:
+- `rep` (string) - Reputation type name
+
+**Returns**:
+- `number` - Current reputation points (returns 0 if type doesn't exist)
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- Get hunting reputation
+local huntingRep = Player.Functions.GetRep('hunting')
+print('Player has '.. huntingRep ..' hunting reputation')
+
+-- Check if player meets requirement
+local requiredRep = 100
+if Player.Functions.GetRep('fishing') >= requiredRep then
+    print('Player is a master fisherman!')
+end
+
+-- Get non-existent reputation type
+local unknownRep = Player.Functions.GetRep('nonexistent')
+-- Returns: 0 (safe to use without checks)
+```
+
+---
+
+## Common Reputation Types
+
+### Skill-Based Reputations
+
+Track player proficiency in various activities:
+
+```lua
+-- Gathering/Harvesting
+'hunting'       -- Hunting animals, tracking, pelts
+'fishing'       -- Fishing, legendary fish
+'mining'        -- Mining ore, finding gems
+'herbalism'     -- Gathering herbs, plants
+'foraging'      -- Collecting materials
+
+-- Crafting/Production
+'crafting'      -- General crafting
+'blacksmith'    -- Metalworking, weapon repair
+'cooking'       -- Food preparation
+'leatherwork'   -- Working with pelts/leather
+'alchemy'       -- Potion/medicine making
+
+-- Combat/Skills
+'marksmanship'  -- Shooting accuracy
+'melee'         -- Close combat
+'horsemanship'  -- Horse handling
+'stealth'       -- Sneaking, pickpocketing
+```
+
+### Faction/Standing Reputations
+
+Track relationships with groups:
+
+```lua
+-- Law Enforcement
+'lawman'        -- Standing with law enforcement
+'bounty_hunter' -- Bounty hunting reputation
+'detective'     -- Investigation work
+
+-- Criminal
+'outlaw'        -- Criminal reputation
+'gang_loyalty'  -- Gang standing
+'smuggler'      -- Smuggling operations
+'thief'         -- Theft reputation
+
+-- Towns/Regions
+'valentine'     -- Valentine town reputation
+'rhodes'        -- Rhodes town reputation
+'saint_denis'   -- Saint Denis reputation
+'blackwater'    -- Blackwater reputation
+
+-- Professions
+'trader'        -- Trading reputation
+'doctor'        -- Medical reputation
+'rancher'       -- Ranching reputation
+```
+
+---
+
+## Implementation Examples
+
+### Example 1: Hunting Reputation System
+
+```lua
+-- SERVER SIDE
+-- Award reputation based on pelt quality
+RegisterNetEvent('hunting:server:sellPelt', function(peltType, quality)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local repGain = 0
+    local basePrice = 10
+
+    -- Quality affects reputation gain
+    if quality == 'perfect' then
+        repGain = 5
+        basePrice = basePrice * 1.5
+    elseif quality == 'good' then
+        repGain = 3
+        basePrice = basePrice * 1.2
+    elseif quality == 'poor' then
+        repGain = 1
+        basePrice = basePrice * 0.8
+    end
+
+    -- Get current hunting reputation
+    local huntingRep = Player.Functions.GetRep('hunting')
+
+    -- Bonus payment based on reputation
+    local repBonus = math.floor(huntingRep / 10) -- 1% per 10 rep
+    local finalPrice = math.floor(basePrice * (1 + repBonus / 100))
+
+    -- Award money and reputation
+    Player.Functions.AddMoney('cash', finalPrice, 'pelt-sale')
+    Player.Functions.AddRep('hunting', repGain)
+
+    -- Check for reputation milestones
+    local newRep = Player.Functions.GetRep('hunting')
+    if newRep >= 100 and huntingRep < 100 then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Master Hunter',
+            description = 'You have become a Master Hunter!',
+            type = 'success',
+            duration = 10000
+        })
+    end
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        description = 'Sold '.. quality ..' pelt for $'.. finalPrice ..' (+' .. repGain ..' hunting rep)',
+        type = 'success'
+    })
+end)
+```
+
+### Example 2: Lawman vs Outlaw System
+
+```lua
+-- SERVER SIDE
+-- Arrest increases lawman rep, decreases outlaw rep
+RegisterNetEvent('police:server:arrestPlayer', function(targetId)
+    local src = source
+    local Officer = RSGCore.Functions.GetPlayer(src)
+    local Criminal = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Officer or not Criminal then return end
+
+    -- Check officer is law enforcement
+    if Officer.PlayerData.job.type ~= 'leo' then return end
+
+    -- Award lawman reputation to officer
+    Officer.Functions.AddRep('lawman', 10)
+
+    -- Reduce outlaw reputation for criminal
+    Criminal.Functions.RemoveRep('outlaw', 25)
+
+    -- Check officer's reputation tier
+    local lawmanRep = Officer.Functions.GetRep('lawman')
+    local tier = GetReputationTier(lawmanRep)
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        description = 'Arrested criminal (+10 lawman rep) - '.. tier,
+        type = 'success'
+    })
+end)
+
+-- Crime increases outlaw rep, decreases lawman rep
+RegisterNetEvent('crime:server:commitCrime', function(crimeType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local outlawGain = 0
+
+    if crimeType == 'robbery' then
+        outlawGain = 15
+    elseif crimeType == 'murder' then
+        outlawGain = 25
+    elseif crimeType == 'theft' then
+        outlawGain = 5
+    end
+
+    -- Increase outlaw reputation
+    Player.Functions.AddRep('outlaw', outlawGain)
+
+    -- Decrease lawman reputation
+    Player.Functions.RemoveRep('lawman', outlawGain * 2)
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        description = 'Crime committed (+' .. outlawGain ..' outlaw rep)',
+        type = 'error'
+    })
+end)
+
+-- Helper function for reputation tiers
+function GetReputationTier(rep)
+    if rep >= 500 then return 'Legendary' end
+    if rep >= 300 then return 'Master' end
+    if rep >= 200 then return 'Expert' end
+    if rep >= 100 then return 'Skilled' end
+    if rep >= 50 then return 'Apprentice' end
+    return 'Novice'
+end
+```
+
+### Example 3: Reputation-Locked Content
+
+```lua
+-- SERVER SIDE
+-- Shop that requires reputation to access
+RegisterNetEvent('shop:server:openSpecialShop', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local requiredRep = 100
+    local huntingRep = Player.Functions.GetRep('hunting')
+
+    if huntingRep < requiredRep then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'You need '.. requiredRep ..' hunting reputation (you have '.. huntingRep ..')',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Open special shop with rare items
+    local shopItems = {
+        { name = 'legendary_bow', price = 500, amount = 1 },
+        { name = 'master_lure', price = 100, amount = 5 },
+        { name = 'tracking_scope', price = 250, amount = 1 }
+    }
+
+    exports['rsg-inventory']:OpenShop(src, 'master_hunter_shop', shopItems)
+end)
+
+-- Job promotion based on reputation
+RegisterNetEvent('job:server:requestPromotion', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local job = Player.PlayerData.job.name
+    local currentGrade = Player.PlayerData.job.grade.level
+
+    -- Check job-specific reputation
+    local jobRep = Player.Functions.GetRep(job)
+    local requiredRep = (currentGrade + 1) * 50  -- 50, 100, 150, etc.
+
+    if jobRep < requiredRep then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Need '.. requiredRep ..' '.. job ..' reputation for promotion',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Grant promotion
+    local newGrade = currentGrade + 1
+    if Player.Functions.SetJob(job, tostring(newGrade)) then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Promotion!',
+            description = 'Promoted to grade '.. newGrade,
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Example 4: Reputation Decay Over Time
+
+```lua
+-- SERVER SIDE
+-- Decrease reputation over time if inactive
+CreateThread(function()
+    while true do
+        Wait(3600000)  -- Every hour
+
+        for _, playerId in pairs(RSGCore.Functions.GetPlayers()) do
+            local Player = RSGCore.Functions.GetPlayer(playerId)
+            if Player then
+                -- Decay outlaw reputation slowly
+                local outlawRep = Player.Functions.GetRep('outlaw')
+                if outlawRep > 0 then
+                    Player.Functions.RemoveRep('outlaw', 1)  -- Lose 1 per hour
+                end
+
+                -- Decay skill reputations very slowly
+                for _, skill in ipairs({'hunting', 'fishing', 'mining'}) do
+                    local skillRep = Player.Functions.GetRep(skill)
+                    if skillRep > 100 then
+                        -- Only decay if above 100
+                        Player.Functions.RemoveRep(skill, 1)
+                    end
+                end
+            end
+        end
+    end
+end)
+```
+
+### Example 5: Reputation Rewards and Perks
+
+```lua
+-- SERVER SIDE
+-- Grant perks based on reputation thresholds
+function ApplyReputationPerks(source)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local huntingRep = Player.Functions.GetRep('hunting')
+
+    -- Hunting perks
+    if huntingRep >= 200 then
+        -- Master hunter - better loot chance
+        TriggerClientEvent('hunting:client:setLootBonus', source, 1.5)
+    elseif huntingRep >= 100 then
+        -- Expert hunter - moderate loot bonus
+        TriggerClientEvent('hunting:client:setLootBonus', source, 1.25)
+    end
+
+    local tradingRep = Player.Functions.GetRep('trading')
+
+    -- Trading perks
+    if tradingRep >= 150 then
+        -- Master trader - 20% better prices
+        TriggerClientEvent('trading:client:setPriceBonus', source, 0.20)
+    elseif tradingRep >= 75 then
+        -- Skilled trader - 10% better prices
+        TriggerClientEvent('trading:client:setPriceBonus', source, 0.10)
+    end
+end
+
+-- Call when player loads
+RegisterNetEvent('RSGCore:Server:PlayerLoaded', function(Player)
+    ApplyReputationPerks(Player.PlayerData.source)
+end)
+```
+
+### Example 6: Reputation Leaderboard
+
+```lua
+-- SERVER SIDE
+-- Get top players by reputation type
+RegisterNetEvent('reputation:server:getLeaderboard', function(repType)
+    local src = source
+
+    MySQL.query('SELECT citizenid, charinfo, metadata FROM players ORDER BY JSON_EXTRACT(metadata, "$.rep.'.. repType ..'") DESC LIMIT 10', {}, function(result)
+        if not result then return end
+
+        local leaderboard = {}
+        for i = 1, #result do
+            local charinfo = json.decode(result[i].charinfo)
+            local metadata = json.decode(result[i].metadata)
+            local rep = metadata.rep and metadata.rep[repType] or 0
+
+            leaderboard[#leaderboard + 1] = {
+                rank = i,
+                name = charinfo.firstname ..' '.. charinfo.lastname,
+                reputation = rep
+            }
+        end
+
+        TriggerClientEvent('reputation:client:showLeaderboard', src, repType, leaderboard)
+    end)
+end)
+
+-- CLIENT SIDE
+RegisterNetEvent('reputation:client:showLeaderboard', function(repType, leaderboard)
+    -- Display leaderboard in UI
+    SendNUIMessage({
+        action = 'showLeaderboard',
+        type = repType,
+        data = leaderboard
+    })
+end)
+```
+
+### Example 7: Multi-Reputation Requirements
+
+```lua
+-- SERVER SIDE
+-- Quest that requires multiple reputation types
+RegisterNetEvent('quest:server:startMasterQuest', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local requirements = {
+        hunting = 150,
+        fishing = 100,
+        crafting = 100,
+        trading = 75
+    }
+
+    -- Check all requirements
+    local meetsRequirements = true
+    local missingReps = {}
+
+    for repType, required in pairs(requirements) do
+        local current = Player.Functions.GetRep(repType)
+        if current < required then
+            meetsRequirements = false
+            missingReps[#missingReps + 1] = {
+                type = repType,
+                required = required,
+                current = current,
+                needed = required - current
+            }
+        end
+    end
+
+    if not meetsRequirements then
+        local message = 'Missing reputation requirements:\n'
+        for _, missing in ipairs(missingReps) do
+            message = message .. missing.type ..': '.. missing.current ..'/'.. missing.required ..' (need '.. missing.needed ..' more)\n'
+        end
+
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Quest Locked',
+            description = message,
+            type = 'error',
+            duration = 10000
+        })
+        return
+    end
+
+    -- Start the master quest
+    TriggerEvent('quest:server:startQuest', src, 'master_quest')
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Master Quest',
+        description = 'You have unlocked the Master Quest!',
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Reputation Tier Systems
+
+### Creating Reputation Tiers
+
+```lua
+-- SERVER SIDE
+-- Define reputation tiers
+local ReputationTiers = {
+    hunting = {
+        { min = 0,   max = 49,  label = 'Novice Hunter',    color = '#808080' },
+        { min = 50,  max = 99,  label = 'Apprentice Hunter', color = '#00ff00' },
+        { min = 100, max = 199, label = 'Skilled Hunter',    color = '#0080ff' },
+        { min = 200, max = 299, label = 'Expert Hunter',     color = '#8000ff' },
+        { min = 300, max = 499, label = 'Master Hunter',     color = '#ff8000' },
+        { min = 500, max = 9999, label = 'Legendary Hunter', color = '#ff0000' }
+    },
+    lawman = {
+        { min = 0,   max = 49,  label = 'Recruit',        color = '#808080' },
+        { min = 50,  max = 99,  label = 'Deputy',         color = '#00ff00' },
+        { min = 100, max = 199, label = 'Sheriff',        color = '#0080ff' },
+        { min = 200, max = 299, label = 'US Marshal',     color = '#8000ff' },
+        { min = 300, max = 9999, label = 'Legendary Lawman', color = '#ff0000' }
+    }
+}
+
+-- Get tier for reputation
+function GetReputationTier(repType, repAmount)
+    local tiers = ReputationTiers[repType]
+    if not tiers then return nil end
+
+    for _, tier in ipairs(tiers) do
+        if repAmount >= tier.min and repAmount <= tier.max then
+            return tier
+        end
+    end
+
+    return nil
+end
+
+-- Usage
+RegisterNetEvent('reputation:server:checkTier', function(repType)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local rep = Player.Functions.GetRep(repType)
+    local tier = GetReputationTier(repType, rep)
+
+    if tier then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = tier.label,
+            description = 'You have '.. rep ..' '.. repType ..' reputation',
+            type = 'info'
+        })
+    end
+end)
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Use descriptive reputation names**: Choose clear, lowercase names like 'hunting', 'lawman', not abbreviations
+</Tip>
+
+<Warning>
+**Don't use special characters**: Stick to letters, numbers, and underscores for reputation type names
+</Warning>
+
+<Check>
+**Provide feedback**: Always notify players when they gain or lose reputation
+</Check>
+
+### Design Guidelines
+
+1. **Meaningful Gains**: Make reputation gains feel rewarding
+   - Small tasks: 1-5 rep
+   - Medium tasks: 5-15 rep
+   - Large tasks: 15-50 rep
+   - Milestones: 50+ rep
+
+2. **Clear Thresholds**: Set clear milestones for unlocks
+   - Tier 1: 0-49 (Novice)
+   - Tier 2: 50-99 (Apprentice)
+   - Tier 3: 100-199 (Skilled)
+   - Tier 4: 200-299 (Expert)
+   - Tier 5: 300-499 (Master)
+   - Tier 6: 500+ (Legendary)
+
+3. **Balance Gains vs Losses**:
+   - Easier to gain than lose (2:1 ratio recommended)
+   - Protect new players from excessive reputation loss
+   - Consider reputation decay for inactive skills
+
+4. **Multiple Paths**: Allow different activities to earn same reputation
+   - Hunting: killing animals, selling pelts, completing challenges
+   - Lawman: arrests, patrols, investigations
+   - Trading: sales, deliveries, negotiations
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Reputation not saving" defaultOpen={false}>
+    **Possible causes**:
+    - Player data not saving to database
+    - Metadata corruption
+    - Server crash before save
+
+    **Solution**:
+    - Check auto-save interval (default: 5 minutes)
+    - Verify database connection
+    - Manually trigger save: `Player.Functions.Save()`
+  </Accordion>
+
+  <Accordion title="Reputation showing as nil" defaultOpen={false}>
+    **Explanation**: This is normal!
+    - `GetRep()` returns 0 for non-existent reputation types
+    - Reputation types are created on first `AddRep()` call
+    - No need to initialize reputation types
+
+    **Solution**: Just use `GetRep()` - it handles missing types automatically
+  </Accordion>
+
+  <Accordion title="Reputation going negative" defaultOpen={false}>
+    **Explanation**: This cannot happen!
+    - `RemoveRep()` clamps at 0 minimum
+    - Even removing more than available sets it to 0
+    - Negative reputation is not supported
+
+    **Workaround**: Use separate reputation types for opposing factions (lawman vs outlaw)
+  </Accordion>
+
+  <Accordion title="Reputation not persisting after restart" defaultOpen={false}>
+    **Possible causes**:
+    - Database not saving metadata properly
+    - Metadata JSON corruption
+    - Auto-save not running
+
+    **Solution**:
+    - Check `players` table `metadata` column
+    - Verify JSON format is valid
+    - Ensure RSGCore.Config.UpdateInterval is set
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Technical Details
+
+### Database Storage
+
+Reputation is stored in the `metadata` JSON column:
+
+```sql
+-- players table
+metadata = '{
+    "hunger": 100,
+    "thirst": 100,
+    "rep": {
+        "hunting": 150,
+        "fishing": 75,
+        "lawman": 200
+    }
+}'
+```
+
+### Implementation Location
+
+Reputation functions are in `rsg-core/server/player.lua`:
+
+```lua
+-- Lines 236-242: AddRep
+function self.Functions.AddRep(rep, amount)
+    if not rep or not amount then return end
+    local addAmount = tonumber(amount)
+    local currentRep = self.PlayerData.metadata['rep'][rep] or 0
+    self.PlayerData.metadata['rep'][rep] = currentRep + addAmount
+    self.Functions.UpdatePlayerData()
+end
+
+-- Lines 244-254: RemoveRep
+function self.Functions.RemoveRep(rep, amount)
+    if not rep or not amount then return end
+    local removeAmount = tonumber(amount)
+    local currentRep = self.PlayerData.metadata['rep'][rep] or 0
+    if currentRep - removeAmount < 0 then
+        self.PlayerData.metadata['rep'][rep] = 0
+    else
+        self.PlayerData.metadata['rep'][rep] = currentRep - removeAmount
+    end
+    self.Functions.UpdatePlayerData()
+end
+
+-- Lines 256-259: GetRep
+function self.Functions.GetRep(rep)
+    if not rep then return end
+    return self.PlayerData.metadata['rep'][rep] or 0
+end
+```
+
+### Performance Considerations
+
+- Reputation operations are O(1) - very fast
+- Changes saved to database every 5 minutes (auto-save)
+- No network overhead (server-side only)
+- Minimal memory footprint (integer storage)
+
+---
+
+## Next Steps
+
+- [Player Data Reference](/essentials/playerdata) - Complete player data structure
+- [StateBags System](/essentials/statebags) - Real-time data synchronization
+- [Server Functions](/api-reference/endpoint/serverfunctionreference) - All server functions
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

@@ -1,0 +1,784 @@
+---
+title: "💰 Money System"
+description: "Complete guide to the RSG Framework money system with multiple bank types and physical money items"
+---
+
+## Introduction
+
+The RSG Framework features a comprehensive money system designed for RedM that includes multiple bank types, physical money items, and bloodmoney for illegal activities. Unlike traditional frameworks with a single bank account, RSG provides location-specific banks throughout the map.
+
+**Version**: 2.3.6+
+
+<Warning>
+The legacy `bank` money type is **DEPRECATED** and set to 0 by default. Use location-specific banks instead!
+</Warning>
+
+---
+
+## Core Features
+
+### 💵 Money Types
+
+The framework supports **7 different money types**:
+
+1. **cash** - Physical money in hand (can be dropped/stolen)
+2. **valbank** - Valentine Bank account
+3. **rhobank** - Rhodes Bank account
+4. **blkbank** - Blackwater Bank account
+5. **armbank** - Armadillo Bank account
+6. **bloodmoney** - Illegal money from criminal activities
+7. **bank** - ⚠️ **DEPRECATED** (legacy, set to 0)
+
+### 🏦 Physical Money Items
+
+When `EnableMoneyItems` is `true` (default):
+- **cash** becomes a physical inventory item (`dollar`)
+- **bloodmoney** becomes a physical inventory item (`blood_dollar`)
+- Players can see, drop, and trade physical money
+- Money can be stolen from players when downed/robbed
+
+### 📊 Money Logging
+
+All money transactions are automatically logged:
+- Transactions over **$100,000** trigger special high-value logging
+- All AddMoney/RemoveMoney/SetMoney calls include reason tracking
+- Integration with `rsg-log` for audit trails
+
+---
+
+## How It Works
+
+### Money Storage
+
+Money is stored in the player's data as a JSON object:
+
+```lua
+PlayerData.money = {
+    cash = 50,          -- Starting cash
+    valbank = 0,        -- Valentine Bank
+    rhobank = 0,        -- Rhodes Bank
+    blkbank = 0,        -- Blackwater Bank
+    armbank = 0,        -- Armadillo Bank
+    bloodmoney = 0,     -- Bloodstained money
+    bank = 0            -- DEPRECATED
+}
+```
+
+### Default Starting Money
+
+Configured in `rsg-core/config.lua`:
+
+```lua
+RSGConfig.Money.MoneyTypes = {
+    cash = 50,           -- $50 starting cash
+    bank = 0,            -- Deprecated
+    valbank = 0,
+    rhobank = 0,
+    blkbank = 0,
+    armbank = 0,
+    bloodmoney = 0
+}
+```
+
+### Physical Money Items
+
+Enable/disable in `rsg-core/config.lua`:
+
+```lua
+RSGConfig.Money.EnableMoneyItems = true  -- Default: true
+```
+
+When enabled:
+- `cash` → `dollar` item (weight: 1g each)
+- `bloodmoney` → `blood_dollar` item (weight: 1g each)
+
+Item definitions in `rsg-core/shared/items.lua`:
+
+```lua
+['dollar'] = {
+    name = 'dollar',
+    label = 'Dollars',
+    weight = 1,
+    type = 'item',
+    image = 'dollar.png',
+    unique = false,
+    useable = false,
+    shouldClose = false,
+    combinable = nil,
+    description = 'US Dollar'
+},
+['blood_dollar'] = {
+    name = 'blood_dollar',
+    label = 'Bloodstained Dollars',
+    weight = 1,
+    type = 'item',
+    image = 'bloodmoney.png',
+    unique = false,
+    useable = false,
+    shouldClose = false,
+    combinable = nil,
+    description = 'Blood-stained money from illegal activities'
+}
+```
+
+---
+
+## Player Money Functions
+
+### Add Money
+
+Adds money to a player's account.
+
+```lua
+Player.Functions.AddMoney(moneytype, amount, reason)
+```
+
+**Parameters**:
+- `moneytype` (string) - Type of money ('cash', 'valbank', etc.)
+- `amount` (number) - Amount to add
+- `reason` (string) - Reason for logging (optional)
+
+**Returns**: `boolean` - True if successful, false if failed
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('job:server:payPlayer', function(amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Add cash
+    if Player.Functions.AddMoney('cash', amount, 'job-payment') then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Payment Received',
+            description = 'You received $'.. amount,
+            type = 'success',
+            duration = 5000
+        })
+    end
+end)
+
+-- Add to Valentine Bank
+Player.Functions.AddMoney('valbank', 500, 'bank-deposit')
+
+-- Add bloodmoney from robbery
+Player.Functions.AddMoney('bloodmoney', 250, 'store-robbery')
+```
+
+<Check>
+Money over $100,000 triggers special high-value logging for admin monitoring
+</Check>
+
+---
+
+### Remove Money
+
+Removes money from a player's account.
+
+```lua
+Player.Functions.RemoveMoney(moneytype, amount, reason)
+```
+
+**Parameters**:
+- `moneytype` (string) - Type of money
+- `amount` (number) - Amount to remove
+- `reason` (string) - Reason for logging (optional)
+
+**Returns**: `boolean` - True if successful, false if insufficient funds
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('shop:server:purchase', function(itemPrice)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check if player has enough cash
+    if Player.Functions.GetMoney('cash') < itemPrice then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Not Enough Money',
+            description = 'You need $'.. itemPrice,
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+
+    -- Remove money
+    if Player.Functions.RemoveMoney('cash', itemPrice, 'shop-purchase') then
+        -- Give item
+        exports['rsg-inventory']:AddItem(src, 'bread', 1, nil, nil, 'purchased')
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Purchase Successful',
+            type = 'success',
+            duration = 5000
+        })
+    end
+end)
+```
+
+<Info>
+Money types in `DontAllowMinus` config cannot go below 0. Transaction will fail instead.
+</Info>
+
+---
+
+### Set Money
+
+Sets a specific money amount (overwrites current value).
+
+```lua
+Player.Functions.SetMoney(moneytype, amount, reason)
+```
+
+**Parameters**:
+- `moneytype` (string) - Type of money
+- `amount` (number) - New amount
+- `reason` (string) - Reason for logging (optional)
+
+**Returns**: `boolean` - True if successful, false if failed
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+-- Admin command to set player money
+RegisterCommand('setmoney', function(source, args)
+    local src = source
+    if not RSGCore.Functions.HasPermission(src, 'admin') then return end
+
+    local targetId = tonumber(args[1])
+    local moneyType = args[2] or 'cash'
+    local amount = tonumber(args[3]) or 0
+
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+    if not Target then return end
+
+    if Target.Functions.SetMoney(moneyType, amount, 'admin-set') then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Set '.. moneyType ..' to $'.. amount,
+            type = 'success'
+        })
+    end
+end, false)
+```
+
+<Warning>
+SetMoney completely overwrites the current amount. Use AddMoney/RemoveMoney for relative changes.
+</Warning>
+
+---
+
+### Get Money
+
+Gets the current amount of a specific money type.
+
+```lua
+Player.Functions.GetMoney(moneytype)
+```
+
+**Parameters**:
+- `moneytype` (string) - Type of money to check
+
+**Returns**: `number|boolean` - Amount or false if invalid type
+
+**Example**:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- Check cash
+local cashAmount = Player.Functions.GetMoney('cash')
+print('Player has $'.. cashAmount ..' cash')
+
+-- Check Valentine Bank balance
+local valbankAmount = Player.Functions.GetMoney('valbank')
+print('Valentine Bank: $'.. valbankAmount)
+
+-- Check total money across all accounts
+local totalMoney = 0
+for moneyType, _ in pairs(Player.PlayerData.money) do
+    if moneyType ~= 'bank' then  -- Skip deprecated bank
+        totalMoney = totalMoney + Player.Functions.GetMoney(moneyType)
+    end
+end
+print('Total wealth: $'.. totalMoney)
+```
+
+---
+
+## Money Configuration
+
+### Config Settings
+
+Located in `rsg-core/config.lua`:
+
+```lua
+RSGConfig.Money = {
+    -- Starting amounts for new players
+    MoneyTypes = {
+        cash = 50,
+        bank = 0,            -- DEPRECATED
+        valbank = 0,
+        rhobank = 0,
+        blkbank = 0,
+        armbank = 0,
+        bloodmoney = 0
+    },
+
+    -- Enable physical money items
+    EnableMoneyItems = true,
+
+    -- Money types that cannot go below 0
+    DontAllowMinus = { 'cash', 'valbank', 'rhobank', 'blkbank', 'armbank', 'bloodmoney' },
+
+    -- Minimum balance allowed (for types not in DontAllowMinus)
+    MinusLimit = -5000,
+
+    -- Paycheck settings
+    PayCheckTimeOut = 30,        -- Minutes between paychecks
+    PayCheckSociety = false      -- Deduct paychecks from society accounts
+}
+```
+
+### Money Item Configuration
+
+Physical money behavior:
+- When player receives cash → automatically converted to `dollar` item
+- When player spends cash → `dollar` items are removed
+- Can drop/trade dollar items like any other inventory item
+- Death/robbery can result in cash loss
+
+---
+
+## Bank System
+
+### Location-Specific Banks
+
+Each major town has its own bank:
+
+| Bank Type | Location | Config Key |
+|-----------|----------|------------|
+| Valentine Bank | Valentine | `valbank` |
+| Rhodes Bank | Rhodes | `rhobank` |
+| Blackwater Bank | Blackwater | `blkbank` |
+| Armadillo Bank | Armadillo | `armbank` |
+
+### Why Multiple Banks?
+
+1. **Realism**: Players must travel to specific towns to access their accounts
+2. **Gameplay**: Creates opportunities for bank robberies and escorts
+3. **Economy**: Different regions can have different banking features
+4. **Risk**: Traveling with cash adds danger and roleplay opportunities
+
+### Bank Account Management
+
+```lua
+-- SERVER SIDE
+-- Deposit cash into Valentine Bank
+RegisterNetEvent('bank:server:deposit', function(bankType, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Validate bank type
+    local validBanks = { 'valbank', 'rhobank', 'blkbank', 'armbank' }
+    if not lib.table.contains(validBanks, bankType) then
+        return
+    end
+
+    -- Check player has enough cash
+    if Player.Functions.GetMoney('cash') < amount then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Not enough cash',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process deposit
+    if Player.Functions.RemoveMoney('cash', amount, 'bank-deposit') then
+        if Player.Functions.AddMoney(bankType, amount, 'bank-deposit') then
+            TriggerClientEvent('ox_lib:notify', src, {
+                description = 'Deposited $'.. amount,
+                type = 'success'
+            })
+        end
+    end
+end)
+
+-- Withdraw from Rhodes Bank
+RegisterNetEvent('bank:server:withdraw', function(bankType, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check bank balance
+    if Player.Functions.GetMoney(bankType) < amount then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Insufficient funds',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process withdrawal
+    if Player.Functions.RemoveMoney(bankType, amount, 'bank-withdrawal') then
+        if Player.Functions.AddMoney('cash', amount, 'bank-withdrawal') then
+            TriggerClientEvent('ox_lib:notify', src, {
+                description = 'Withdrew $'.. amount,
+                type = 'success'
+            })
+        end
+    end
+end)
+```
+
+---
+
+## Bloodmoney System
+
+### What is Bloodmoney?
+
+Bloodmoney is illegal currency obtained through:
+- Store/bank robberies
+- Drug sales
+- Gang activities
+- Stolen goods fencing
+
+### Bloodmoney Features
+
+- **Separate Currency**: Cannot be deposited in legitimate banks
+- **Physical Item**: Appears as `blood_dollar` when money items enabled
+- **Illegal Use**: Used for black market purchases
+- **Risk Factor**: Can be confiscated by law enforcement
+
+### Using Bloodmoney
+
+```lua
+-- SERVER SIDE
+-- Award bloodmoney from robbery
+RegisterNetEvent('robbery:server:complete', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local bloodReward = math.random(100, 500)
+
+    if Player.Functions.AddMoney('bloodmoney', bloodReward, 'store-robbery') then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'You got $'.. bloodReward ..' in bloodmoney',
+            type = 'error',
+            duration = 5000
+        })
+    end
+end)
+
+-- Black market shop accepting bloodmoney
+RegisterNetEvent('blackmarket:server:purchase', function(itemName, price)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Check bloodmoney balance
+    if Player.Functions.GetMoney('bloodmoney') < price then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Not enough bloodmoney',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process purchase
+    if Player.Functions.RemoveMoney('bloodmoney', price, 'blackmarket-purchase') then
+        exports['rsg-inventory']:AddItem(src, itemName, 1, nil, nil, 'blackmarket')
+    end
+end)
+
+-- Law enforcement confiscation
+RegisterNetEvent('police:server:confiscateBloodmoney', function(targetId)
+    local src = source
+    local Officer = RSGCore.Functions.GetPlayer(src)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Officer or not Target then return end
+
+    -- Check officer is law enforcement
+    if Officer.PlayerData.job.type ~= 'leo' then return end
+
+    local bloodAmount = Target.Functions.GetMoney('bloodmoney')
+    if bloodAmount > 0 then
+        Target.Functions.SetMoney('bloodmoney', 0, 'police-confiscation')
+        TriggerClientEvent('ox_lib:notify', targetId, {
+            description = 'Police confiscated $'.. bloodAmount ..' bloodmoney',
+            type = 'error'
+        })
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Confiscated $'.. bloodAmount ..' bloodmoney',
+            type = 'success'
+        })
+    end
+end)
+```
+
+---
+
+## Money Events
+
+### Server Events
+
+Listen for money changes in your resources:
+
+```lua
+-- Triggered when money is added/removed/set
+AddEventHandler('RSGCore:Server:OnMoneyChange', function(source, moneyType, amount, changeType, reason)
+    print('Player '.. source ..' '.. changeType ..' $'.. amount ..' '.. moneyType)
+    print('Reason: '.. reason)
+
+    -- changeType can be: 'add', 'remove', 'set'
+end)
+```
+
+### Client Events
+
+```lua
+-- CLIENT SIDE
+RegisterNetEvent('RSGCore:Client:OnMoneyChange', function(moneyType, amount, changeType, reason)
+    print('Your '.. moneyType ..' was '.. changeType ..'ed by $'.. amount)
+
+    -- Optional: Update custom UI
+    if moneyType == 'cash' then
+        -- Update cash display
+    end
+end)
+```
+
+---
+
+## Complete Examples
+
+### Example 1: Paycheck System
+
+```lua
+-- SERVER SIDE
+-- Automatic paycheck (called by rsg-core every X minutes)
+function PaycheckInterval()
+    if next(RSGCore.Players) then
+        for _, Player in pairs(RSGCore.Players) do
+            if Player then
+                local job = Player.PlayerData.job
+                local payment = RSGShared.Jobs[job.name]['grades'][tostring(job.grade.level)].payment
+
+                -- Only pay if on duty (or job allows off-duty pay)
+                if payment > 0 and (RSGShared.Jobs[job.name].offDutyPay or job.onduty) then
+                    Player.Functions.AddMoney('cash', payment, 'paycheck')
+                    TriggerClientEvent('ox_lib:notify', Player.PlayerData.source, {
+                        title = 'Paycheck',
+                        description = 'Received $'.. payment,
+                        type = 'info',
+                        duration = 5000
+                    })
+                end
+            end
+        end
+    end
+    SetTimeout(RSGCore.Config.Money.PayCheckTimeOut * 60000, PaycheckInterval)
+end
+```
+
+### Example 2: ATM/Bank UI
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('bank:server:getBalance', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    local bankData = {
+        cash = Player.Functions.GetMoney('cash'),
+        valbank = Player.Functions.GetMoney('valbank'),
+        rhobank = Player.Functions.GetMoney('rhobank'),
+        blkbank = Player.Functions.GetMoney('blkbank'),
+        armbank = Player.Functions.GetMoney('armbank'),
+        bloodmoney = Player.Functions.GetMoney('bloodmoney')
+    }
+
+    TriggerClientEvent('bank:client:displayBalance', src, bankData)
+end)
+
+-- Transfer between accounts
+RegisterNetEvent('bank:server:transfer', function(fromBank, toBank, amount)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Validate
+    if Player.Functions.GetMoney(fromBank) < amount then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Insufficient funds',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Process transfer
+    if Player.Functions.RemoveMoney(fromBank, amount, 'bank-transfer') then
+        if Player.Functions.AddMoney(toBank, amount, 'bank-transfer') then
+            TriggerClientEvent('ox_lib:notify', src, {
+                description = 'Transfer successful',
+                type = 'success'
+            })
+        end
+    end
+end)
+```
+
+### Example 3: Money Drop on Death
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('player:server:onDeath', function()
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return end
+
+    -- Drop random percentage of cash (10-30%)
+    local cashAmount = Player.Functions.GetMoney('cash')
+    if cashAmount > 0 then
+        local dropPercent = math.random(10, 30) / 100
+        local dropAmount = math.floor(cashAmount * dropPercent)
+
+        if Player.Functions.RemoveMoney('cash', dropAmount, 'death-penalty') then
+            -- Create ground drop
+            local playerPed = GetPlayerPed(src)
+            local coords = GetEntityCoords(playerPed)
+
+            exports['rsg-inventory']:ForceDropItem(src, 'dollar', dropAmount, {}, 'death')
+
+            TriggerClientEvent('ox_lib:notify', src, {
+                description = 'You dropped $'.. dropAmount ..' when you died',
+                type = 'error',
+                duration = 5000
+            })
+        end
+    end
+end)
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Always validate before transactions**: Check if player has sufficient funds before attempting to remove money
+</Tip>
+
+<Warning>
+**Use the deprecated 'bank' type carefully**: It's set to 0 by default. Migrate to location-specific banks
+</Warning>
+
+<Check>
+**Include descriptive reasons**: Always provide a reason parameter for audit logging and debugging
+</Check>
+
+### Common Patterns
+
+1. **Check before removing**:
+```lua
+if Player.Functions.GetMoney('cash') >= price then
+    Player.Functions.RemoveMoney('cash', price, 'purchase')
+end
+```
+
+2. **Handle failures**:
+```lua
+if not Player.Functions.AddMoney('cash', reward, 'quest-reward') then
+    -- Player inventory might be full if money items enabled
+    -- Money will be dropped on ground automatically
+end
+```
+
+3. **Use appropriate money type**:
+```lua
+-- Legal job payment
+Player.Functions.AddMoney('cash', payment, 'job-salary')
+
+-- Illegal activity
+Player.Functions.AddMoney('bloodmoney', reward, 'drug-sale')
+
+-- Bank deposit
+Player.Functions.AddMoney('valbank', amount, 'deposit')
+```
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Money not saving" defaultOpen={false}>
+    Check that player data is being saved correctly. Money is saved as JSON in the `money` column of the `players` table.
+  </Accordion>
+
+  <Accordion title="Physical money items not working" defaultOpen={false}>
+    Verify `RSGConfig.Money.EnableMoneyItems = true` in config.lua and ensure `dollar` and `blood_dollar` items exist in shared/items.lua
+  </Accordion>
+
+  <Accordion title="Can't use 'bank' money type" defaultOpen={false}>
+    The 'bank' type is deprecated. Use location-specific banks: valbank, rhobank, blkbank, or armbank
+  </Accordion>
+
+  <Accordion title="Money going negative" defaultOpen={false}>
+    Check `DontAllowMinus` config array. Money types in this list cannot go below 0.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Migration from Old Bank System
+
+If migrating from an older framework with single 'bank' type:
+
+```lua
+-- SERVER SIDE - Migration script
+RegisterCommand('migratebanks', function(source)
+    if not RSGCore.Functions.HasPermission(source, 'admin') then return end
+
+    MySQL.query('SELECT citizenid, money FROM players', {}, function(result)
+        if result then
+            for i = 1, #result do
+                local money = json.decode(result[i].money)
+
+                if money.bank and money.bank > 0 then
+                    -- Transfer old 'bank' to 'valbank' (or chosen default)
+                    money.valbank = money.valbank + money.bank
+                    money.bank = 0
+
+                    MySQL.update('UPDATE players SET money = ? WHERE citizenid = ?', {
+                        json.encode(money),
+                        result[i].citizenid
+                    })
+                end
+            end
+            print('Bank migration complete!')
+        end
+    end)
+end, false)
+```
+
+---
+
+## Next Steps
+
+- [Player Data Reference](/essentials/playerdata) - Learn about PlayerData structure
+- [Configuration Guide](/essentials/configuration) - Configure money settings
+- [Server Functions](/api-reference/endpoint/serverfunctionreference) - All money-related functions
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

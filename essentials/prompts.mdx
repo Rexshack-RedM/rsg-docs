@@ -1,34 +1,518 @@
 ---
 title: "🎮 RSG Prompts"
-description: "Learn how to use the built-in prompt function!"
+description: "Complete guide to creating and managing interaction prompts in RSG Framework"
 ---
 
-## Show Prompt
+## Introduction
 
-[](https://github.com/Artmines/docs/blob/9fc30baf63ad3153547abb9a4d31bb166bda80a3/essentials/functions.mdx#show-prompt)
+RSG Framework includes a built-in prompt system that creates native Red Dead Redemption 2 style interaction prompts. These prompts appear when players approach specific locations and can trigger events when the correct key is pressed.
 
-Function to show the native prompt system within RSG
+**Location**: `resources/[framework]/rsg-core/client/prompts.lua`
+
+<Info>
+Prompts are the primary way players interact with the world in Red Dead Redemption 2. Using native prompts ensures a consistent and immersive experience.
+</Info>
+
+---
+
+## Core Features
+
+### 🎯 Native RDR2 Style
+
+- **Authentic Look**: Uses native RDR2 prompt system
+- **Consistent UX**: Same style as game prompts
+- **Visual Feedback**: Press-and-hold indicators
+
+### 📍 Location-based
+
+- **Distance Checking**: Only shows when player is nearby
+- **Coordinates**: Precise 3D positioning
+- **Automatic Hide**: Disappears when player leaves area
+
+### ⚡ Event Integration
+
+- **Client Events**: Trigger client-side events
+- **Server Events**: Trigger server-side events
+- **Arguments**: Pass custom data to events
+
+---
+
+## Creating Prompts
+
+### Basic Syntax
 
 ```lua
+exports['rsg-core']:createPrompt(location, coords, key, label, options)
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `location` | string | Unique identifier for this prompt |
+| `coords` | vector3 | World coordinates for the prompt |
+| `key` | string | Key hash from RSGCore.Shared.Keybinds |
+| `label` | string | Text displayed to player |
+| `options` | table | Event configuration |
+
+### Options Table
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | string | `'client'` or `'server'` |
+| `event` | string | Event name to trigger |
+| `args` | table | Arguments passed to event |
+
+---
+
+## Basic Examples
+
+### Example 1: Simple Client Prompt
+
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+
+-- Create a prompt at Valentine General Store
 exports['rsg-core']:createPrompt(
-    v.location,  -- The location identifier for the prompt
-    v.coords,    -- The coordinates where the prompt will appear
-    RSGCore.Shared.Keybinds[Config.KeyShop],  -- The keybind for interaction
-    Lang:t('menu.open') .. v.name,  -- The message displayed to the player
+    'valentine_general_store',                    -- Unique location ID
+    vector3(-322.5, 773.2, 116.2),               -- Store coordinates
+    RSGCore.Shared.Keybinds['E'],                -- Press E to interact
+    'Open General Store',                         -- Display text
     {
-        type = 'client',  -- Type of the prompt
-        event = 'SOME EVENT HERE',  -- Event triggered on interaction
-        args = {},  -- Additional arguments for the event
+        type = 'client',                          -- Trigger client event
+        event = 'store:client:openMenu',          -- Event name
+        args = { storeId = 'valentine_general' }  -- Event arguments
     }
 )
 ```
 
-## Delete Prompt
-
-[](https://github.com/Artmines/docs/blob/9fc30baf63ad3153547abb9a4d31bb166bda80a3/essentials/functions.mdx#delete-prompt)
-
-* **`createdEntries[i].handle`**: This retrieves the handle of the specific prompt you wish to delete from the `createdEntries` table, where `i` is the index of the entry.
+### Example 2: Server Event Prompt
 
 ```lua
-exports['rsg-core']:deletePrompt(createdEntries[i].handle)
+-- CLIENT SIDE
+exports['rsg-core']:createPrompt(
+    'bank_valentine_teller',
+    vector3(-312.8, 770.5, 117.1),
+    RSGCore.Shared.Keybinds['E'],
+    'Talk to Bank Teller',
+    {
+        type = 'server',                          -- Trigger server event
+        event = 'bank:server:openAccount',
+        args = { bankId = 'valentine' }
+    }
+)
 ```
+
+### Example 3: Multiple Prompts
+
+```lua
+-- CLIENT SIDE
+local storeLocations = {
+    {
+        id = 'valentine_general',
+        coords = vector3(-322.5, 773.2, 116.2),
+        label = 'Valentine General Store'
+    },
+    {
+        id = 'rhodes_general',
+        coords = vector3(1295.3, -1293.7, 76.9),
+        label = 'Rhodes General Store'
+    },
+    {
+        id = 'strawberry_general',
+        coords = vector3(-1776.5, -396.8, 159.7),
+        label = 'Strawberry General Store'
+    }
+}
+
+-- Create prompts for all stores
+for _, store in ipairs(storeLocations) do
+    exports['rsg-core']:createPrompt(
+        store.id,
+        store.coords,
+        RSGCore.Shared.Keybinds['E'],
+        'Open ' .. store.label,
+        {
+            type = 'client',
+            event = 'store:client:openMenu',
+            args = { storeId = store.id }
+        }
+    )
+end
+```
+
+---
+
+## Deleting Prompts
+
+### Basic Syntax
+
+```lua
+exports['rsg-core']:deletePrompt(handle)
+```
+
+### Example: Managing Prompt Lifecycle
+
+```lua
+-- CLIENT SIDE
+local createdPrompts = {}
+
+-- Create prompts and store handles
+local function CreateJobPrompts()
+    local prompt1 = exports['rsg-core']:createPrompt(
+        'job_start_point',
+        vector3(100.0, 200.0, 30.0),
+        RSGCore.Shared.Keybinds['E'],
+        'Start Job',
+        {
+            type = 'client',
+            event = 'job:client:start',
+            args = {}
+        }
+    )
+    table.insert(createdPrompts, prompt1)
+end
+
+-- Delete all created prompts
+local function DeleteJobPrompts()
+    for i, handle in ipairs(createdPrompts) do
+        exports['rsg-core']:deletePrompt(handle)
+    end
+    createdPrompts = {}
+end
+
+-- Usage: Create prompts when player clocks in
+RegisterNetEvent('job:client:clockIn', function()
+    CreateJobPrompts()
+end)
+
+-- Delete prompts when player clocks out
+RegisterNetEvent('job:client:clockOut', function()
+    DeleteJobPrompts()
+end)
+```
+
+---
+
+## Advanced Usage
+
+### Dynamic Prompts Based on Job
+
+```lua
+-- CLIENT SIDE
+local RSGCore = exports['rsg-core']:GetCoreObject()
+local jobPrompts = {}
+
+-- Create prompts based on player's job
+local function SetupJobPrompts()
+    -- Clear existing prompts
+    for _, handle in ipairs(jobPrompts) do
+        exports['rsg-core']:deletePrompt(handle)
+    end
+    jobPrompts = {}
+
+    local PlayerData = RSGCore.Functions.GetPlayerData()
+    local jobName = PlayerData.job.name
+
+    if jobName == 'vallaw' then
+        -- Law enforcement prompts
+        local handle = exports['rsg-core']:createPrompt(
+            'sheriff_office_valentine',
+            vector3(-275.5, 807.8, 118.6),
+            RSGCore.Shared.Keybinds['E'],
+            'Access Sheriff Office',
+            {
+                type = 'client',
+                event = 'police:client:openOffice',
+                args = { office = 'valentine' }
+            }
+        )
+        table.insert(jobPrompts, handle)
+
+    elseif jobName == 'valmedic' then
+        -- Medic prompts
+        local handle = exports['rsg-core']:createPrompt(
+            'doctor_office_valentine',
+            vector3(-290.3, 810.2, 118.3),
+            RSGCore.Shared.Keybinds['E'],
+            'Access Medical Supplies',
+            {
+                type = 'client',
+                event = 'medic:client:openSupplies',
+                args = { office = 'valentine' }
+            }
+        )
+        table.insert(jobPrompts, handle)
+    end
+end
+
+-- Update prompts when job changes
+RegisterNetEvent('RSGCore:Client:OnJobUpdate', function(job)
+    SetupJobPrompts()
+end)
+
+-- Setup on login
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+    SetupJobPrompts()
+end)
+```
+
+### Conditional Prompts
+
+```lua
+-- CLIENT SIDE
+-- Show prompt only if player has required item
+local function CreateConditionalPrompt()
+    -- First check if player has key
+    RSGCore.Functions.TriggerCallback('housing:server:hasKey', function(hasKey)
+        if hasKey then
+            exports['rsg-core']:createPrompt(
+                'house_door',
+                vector3(-350.5, 800.2, 116.8),
+                RSGCore.Shared.Keybinds['E'],
+                'Enter House',
+                {
+                    type = 'client',
+                    event = 'housing:client:enter',
+                    args = { houseId = 1 }
+                }
+            )
+        end
+    end)
+end
+```
+
+### Prompt with Hold Duration
+
+For prompts that require holding the key, you can handle this in your event:
+
+```lua
+-- The prompt system uses the native hold behavior
+-- Configure hold time in your event handler
+
+RegisterNetEvent('lockpick:client:start', function(args)
+    -- Show progress bar or use native hold indication
+    local success = exports['rsg-core']:Progressbar('lockpicking', 'Picking lock...', 5000, false, true, {
+        disableMovement = true,
+        disableMouse = false,
+    }, {
+        animDict = 'amb_work@world_human_pickaxe@base',
+        anim = 'base',
+        flags = 49,
+    }, {}, {}, function()
+        -- Success
+        TriggerServerEvent('lockpick:server:success', args.doorId)
+    end, function()
+        -- Cancelled
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Lockpicking cancelled',
+            type = 'error'
+        })
+    end)
+end)
+```
+
+---
+
+## Keybinds Reference
+
+RSG Framework includes predefined keybinds in `RSGCore.Shared.Keybinds`:
+
+```lua
+RSGCore.Shared.Keybinds = {
+    ['E'] = 0x8CC9CD42,      -- E key
+    ['G'] = 0x760A9C6F,      -- G key
+    ['H'] = 0x24978A28,      -- H key
+    ['F'] = 0xB2F377E8,      -- F key
+    ['R'] = 0xE30CD707,      -- R key
+    ['Q'] = 0xDE794E3E,      -- Q key
+    ['TAB'] = 0xB238FE0B,    -- Tab key
+    ['ENTER'] = 0xC7B5340A,  -- Enter key
+    ['LSHIFT'] = 0x8FFC75D6, -- Left Shift
+    ['LCTRL'] = 0xDB096B85,  -- Left Control
+    -- ... more keybinds available
+}
+```
+
+### Usage
+
+```lua
+-- Use keybind in prompt
+RSGCore.Shared.Keybinds['E']     -- E key
+RSGCore.Shared.Keybinds['G']     -- G key
+RSGCore.Shared.Keybinds['F']     -- F key
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Use Unique Location IDs**: Each prompt needs a unique location identifier to prevent conflicts
+```lua
+-- Good: Descriptive and unique
+'valentine_bank_teller_1'
+'rhodes_general_store_entrance'
+
+-- Bad: Generic or duplicate
+'bank'
+'store'
+```
+</Tip>
+
+<Warning>
+**Always Clean Up Prompts**: Delete prompts when they're no longer needed to prevent memory leaks and ghost prompts
+```lua
+-- Store handles when creating
+local handle = exports['rsg-core']:createPrompt(...)
+table.insert(myPrompts, handle)
+
+-- Delete when done
+for _, h in ipairs(myPrompts) do
+    exports['rsg-core']:deletePrompt(h)
+end
+```
+</Warning>
+
+<Check>
+**Use Config for Coordinates**: Store prompt locations in config files for easy adjustment
+```lua
+Config.Prompts = {
+    {
+        id = 'valentine_store',
+        coords = vector3(-322.5, 773.2, 116.2),
+        label = 'General Store'
+    }
+}
+```
+</Check>
+
+### Performance Tips
+
+1. **Batch Creation**: Create multiple prompts in a single loop, not in separate threads
+2. **Clean on Unload**: Delete all prompts in `onResourceStop`
+3. **Minimal Distance**: Use appropriate interaction distances
+4. **Avoid Duplicates**: Check if prompt exists before creating
+
+```lua
+-- Clean up on resource stop
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() then
+        for _, handle in ipairs(createdPrompts) do
+            exports['rsg-core']:deletePrompt(handle)
+        end
+    end
+end)
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Shop System
+
+```lua
+-- config.lua
+Config.Shops = {
+    {
+        id = 'valentine_general',
+        name = 'Valentine General Store',
+        coords = vector3(-322.5, 773.2, 116.2),
+        items = { 'bread', 'water', 'bandage' }
+    }
+}
+
+-- client/main.lua
+CreateThread(function()
+    for _, shop in ipairs(Config.Shops) do
+        exports['rsg-core']:createPrompt(
+            shop.id,
+            shop.coords,
+            RSGCore.Shared.Keybinds['E'],
+            'Browse ' .. shop.name,
+            {
+                type = 'client',
+                event = 'shop:client:open',
+                args = { shopId = shop.id, items = shop.items }
+            }
+        )
+    end
+end)
+```
+
+### Pattern 2: Door System
+
+```lua
+-- Create door prompts that change based on lock state
+local function UpdateDoorPrompt(doorId, isLocked)
+    -- Delete existing prompt
+    if doorPrompts[doorId] then
+        exports['rsg-core']:deletePrompt(doorPrompts[doorId])
+    end
+
+    local doorConfig = Config.Doors[doorId]
+    local label = isLocked and 'Unlock Door' or 'Lock Door'
+
+    doorPrompts[doorId] = exports['rsg-core']:createPrompt(
+        'door_' .. doorId,
+        doorConfig.coords,
+        RSGCore.Shared.Keybinds['E'],
+        label,
+        {
+            type = 'server',
+            event = 'doors:server:toggle',
+            args = { doorId = doorId }
+        }
+    )
+end
+```
+
+---
+
+## Troubleshooting
+
+### Prompt Not Appearing
+
+<AccordionGroup>
+  <Accordion title="Check coordinates" defaultOpen={false}>
+    Make sure the coordinates are correct and the player can actually reach that location:
+
+    ```lua
+    -- Debug: Print player coords
+    local coords = GetEntityCoords(PlayerPedId())
+    print(coords)
+    ```
+  </Accordion>
+
+  <Accordion title="Check unique ID" defaultOpen={false}>
+    Each prompt must have a unique location ID. If you use the same ID twice, the second one won't create.
+  </Accordion>
+
+  <Accordion title="Check keybind" defaultOpen={false}>
+    Make sure you're using a valid keybind from `RSGCore.Shared.Keybinds`:
+
+    ```lua
+    print(RSGCore.Shared.Keybinds['E'])  -- Should print a hash number
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Event Not Triggering
+
+- Verify the event is properly registered
+- Check if it's 'client' or 'server' type
+- Ensure event name matches exactly (case-sensitive)
+
+---
+
+## Next Steps
+
+- [Callbacks](/essentials/callbacks) - Learn about client-server communication
+- [Configuration](/essentials/configuration) - Configure prompt distance
+- [Shared Configuration](/essentials/shared) - Access keybinds and shared data
+- [Player Data](/essentials/playerdata) - Check player job/gang for conditional prompts
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

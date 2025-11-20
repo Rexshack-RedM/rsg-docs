@@ -1,9 +1,46 @@
 ---
 title: "❗ Commands"
-description: "A list of all the commands and their respective resource"
+description: "Complete guide to creating and using commands in RSG Framework"
 ---
 
-## RSGCore.Commands.Add
+## Introduction
+
+RSG Framework provides a robust command system that allows you to create custom commands with permission levels, argument validation, and suggestions. Commands can be restricted to specific permission groups like admin, mod, or user.
+
+**Location**: `resources/[framework]/rsg-core/server/commands.lua`
+
+<Info>
+Commands are automatically registered with FiveM's native suggestion system, showing available commands and their arguments based on player permissions.
+</Info>
+
+---
+
+## Core Features
+
+### 🔐 Permission-based Access
+
+- **User**: Available to all players
+- **Mod**: Moderator-only commands
+- **Admin**: Administrator commands
+- **God**: Super admin commands
+
+### 📝 Argument Handling
+
+- **Required/Optional**: Control if arguments are mandatory
+- **Help Text**: Descriptions shown in suggestions
+- **Type Validation**: Validate argument types in callbacks
+
+### ⚡ Auto-completion
+
+- **Dynamic Suggestions**: Commands show based on permissions
+- **Argument Hints**: Display help text for each argument
+- **Refresh System**: Update suggestions when permissions change
+
+---
+
+## Creating Commands
+
+### RSGCore.Commands.Add
 
 This function allows you to register a command with a specified user level
 
@@ -50,12 +87,107 @@ RSGCore.Commands.Refresh(source)
 
 Example:
 
-```
+```lua
 RegisterCommand('refreshCommands', function()
     RSGCore.Commands.Refresh(source)
     print('You have refreshed all command suggestions for yourself')
 end, true)
 ```
+
+---
+
+## Practical Examples
+
+### Example 1: Basic User Command
+
+```lua
+-- Simple command any player can use
+RSGCore.Commands.Add('mycoords', 'Get your current coordinates', {}, false, function(source)
+    local src = source
+    local ped = GetPlayerPed(src)
+    local coords = GetEntityCoords(ped)
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Coordinates',
+        description = string.format('X: %.2f Y: %.2f Z: %.2f', coords.x, coords.y, coords.z),
+        type = 'inform'
+    })
+end, 'user')
+```
+
+### Example 2: Admin Command with Arguments
+
+```lua
+-- Give item to player
+local arguments = {
+    { name = 'id', help = 'Player ID to give item to' },
+    { name = 'item', help = 'Item name from shared/items.lua' },
+    { name = 'amount', help = 'Amount to give (default: 1)' }
+}
+
+RSGCore.Commands.Add('giveitem', 'Give an item to a player', arguments, true, function(source, args)
+    local targetId = tonumber(args[1])
+    local itemName = args[2]
+    local amount = tonumber(args[3]) or 1
+
+    local Player = RSGCore.Functions.GetPlayer(targetId)
+    if not Player then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Player not found',
+            type = 'error'
+        })
+        return
+    end
+
+    if exports['rsg-inventory']:AddItem(targetId, itemName, amount) then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Gave '.. amount ..'x '.. itemName ..' to player '.. targetId,
+            type = 'success'
+        })
+    end
+end, 'admin')
+```
+
+### Example 3: Command with Optional Arguments
+
+```lua
+-- Heal command - heal yourself or another player
+local arguments = {
+    { name = 'id', help = 'Player ID (optional, heals yourself if empty)' }
+}
+
+RSGCore.Commands.Add('heal', 'Heal yourself or another player', arguments, false, function(source, args)
+    local targetId = tonumber(args[1]) or source
+    local targetPed = GetPlayerPed(targetId)
+
+    if not targetPed or targetPed == 0 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Invalid player',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Heal the player
+    local Player = RSGCore.Functions.GetPlayer(targetId)
+    if Player then
+        Player.Functions.SetMetaData('isdead', false)
+        Player.Functions.SetMetaData('hunger', 100)
+        Player.Functions.SetMetaData('thirst', 100)
+
+        TriggerClientEvent('rsg-player:client:heal', targetId)
+
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = targetId == source and 'You have been healed' or 'Player '.. targetId ..' has been healed',
+            type = 'success'
+        })
+    end
+end, 'admin')
+```
+
+---
+
+## Built-in Commands
 
 ## AdminMenu
 
@@ -278,3 +410,64 @@ end, true)
   **Permission level:** user
   </Accordion>
 </AccordionGroup>
+
+---
+
+## Best Practices
+
+<Tip>
+**Use Clear Names**: Command names should be short but descriptive
+- Good: `giveitem`, `setjob`, `tpm`
+- Bad: `gi`, `sj`, `thing`
+</Tip>
+
+<Warning>
+**Always Validate Input**: Never trust user input - always validate arguments
+```lua
+RSGCore.Commands.Add('setcash', 'Set player cash', arguments, true, function(source, args)
+    local amount = tonumber(args[1])
+    if not amount or amount < 0 or amount > 1000000 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'Invalid amount',
+            type = 'error'
+        })
+        return
+    end
+    -- Process valid amount
+end, 'admin')
+```
+</Warning>
+
+<Check>
+**Provide Helpful Arguments**: Good help text makes commands easier to use
+```lua
+local arguments = {
+    { name = 'id', help = 'Target player server ID (1-255)' },
+    { name = 'amount', help = 'Dollar amount (max: 100000)' }
+}
+```
+</Check>
+
+### Permission Levels
+
+When choosing permission levels, follow these guidelines:
+
+| Level | Use For |
+|-------|---------|
+| `user` | Safe commands any player can use (view own data, cosmetic) |
+| `mod` | Commands that affect other players but not severely |
+| `admin` | Commands that modify game state, spawn items, teleport |
+| `god` | Dangerous commands that can break things or affect all players |
+
+---
+
+## Next Steps
+
+- [Server Functions Reference](/api-reference/endpoint/serverfunctionreference) - Complete function reference
+- [Player Data](/essentials/playerdata) - Access player data in commands
+- [Callbacks](/essentials/callbacks) - Client-server communication
+- [Configuration](/essentials/configuration) - Configure permission levels
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!

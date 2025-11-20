@@ -1,0 +1,661 @@
+---
+title: "🔄 StateBags System"
+description: "Real-time player metadata synchronization using FiveM's StateBags system"
+---
+
+## Introduction
+
+The RSG Framework uses FiveM's StateBags system to efficiently sync player metadata between server and client in real-time. StateBags provide a performant alternative to constantly triggering events, allowing instant access to player data on both sides.
+
+**Version**: 2.3.6+
+
+<Check>
+StateBags automatically sync between server and client without requiring events. Changes are instant and bidirectional!
+</Check>
+
+---
+
+## Core Features
+
+### 🔄 Real-Time Synchronization
+
+- **Instant Updates**: Changes sync immediately without event delays
+- **Bidirectional**: Server ↔ Client synchronization
+- **Automatic**: No manual event triggering needed
+- **Efficient**: Lower network overhead than events
+
+### 📊 Synced Metadata
+
+The framework automatically syncs these metadata values:
+
+| Key | Type | Range | Description |
+|-----|------|-------|-------------|
+| `hunger` | number | 0-100 | Player hunger level |
+| `thirst` | number | 0-100 | Player thirst level |
+| `cleanliness` | number | 0-100 | Player cleanliness level |
+| `stress` | number | 0-100 | Player stress level |
+| `health` | number | 0-600 | Player health (RedM scale) |
+| `isLoggedIn` | boolean | true/false | Player login state |
+
+### ⚡ Performance Benefits
+
+- **No Event Spam**: Eliminates constant event triggering
+- **Direct Access**: Read values directly without callbacks
+- **Reduced Latency**: Instant synchronization
+- **Cleaner Code**: No callback hell or event chains
+
+---
+
+## How It Works
+
+### Architecture Overview
+
+```
+┌─────────────────────┐
+│   Server Side       │
+│                     │
+│  Player Metadata    │
+│  (hunger: 75)       │
+└──────────┬──────────┘
+           │
+           │ StateBag Update
+           │ (Automatic Sync)
+           ▼
+┌─────────────────────┐
+│   Client Side       │
+│                     │
+│  LocalPlayer.state  │
+│  .hunger = 75       │
+└─────────────────────┘
+```
+
+### Initialization on Player Login
+
+When a player logs in, their metadata is loaded and synced to StateBags:
+
+```lua
+-- SERVER SIDE (rsg-core/server/player.lua:528-552)
+function Player.Functions.InitializeStateBags()
+    local metadata = self.PlayerData.metadata
+    local keys = { "hunger", "thirst", "cleanliness", "stress", "health" }
+
+    local state = Player(self.PlayerData.source).state
+    for _, key in ipairs(keys) do
+        if metadata[key] ~= nil then
+            state[key] = metadata[key]  -- Syncs to client automatically
+        end
+    end
+
+    -- Set login state
+    state.isLoggedIn = true
+end
+```
+
+### Persistence on Player Save
+
+When player data is saved, StateBag values are persisted back to metadata:
+
+```lua
+-- SERVER SIDE (rsg-core/server/player.lua:554-568)
+function Player.Functions.PersistStateBags()
+    local metadata = {}
+    local keys = { "hunger", "thirst", "cleanliness", "stress", "health" }
+
+    local state = Player(self.PlayerData.source).state
+    for _, key in ipairs(keys) do
+        if state[key] ~= nil then
+            metadata[key] = state[key]
+        end
+    end
+
+    if next(metadata) then
+        self.Functions.SetMetaData(metadata)  -- Saves to database
+    end
+end
+```
+
+---
+
+## Reading StateBags
+
+### Server-Side Access
+
+```lua
+-- SERVER SIDE
+-- Get player state
+local state = Player(source).state
+
+-- Read values
+local hunger = state.hunger or 100
+local thirst = state.thirst or 100
+local health = state.health or 600
+
+print('Player hunger: '.. hunger)
+
+-- Update values (syncs to client automatically)
+state.hunger = 50
+state.thirst = 75
+```
+
+### Client-Side Access
+
+```lua
+-- CLIENT SIDE
+-- Read your own state
+local hunger = LocalPlayer.state.hunger or 100
+local thirst = LocalPlayer.state.thirst or 100
+local health = LocalPlayer.state.health or 600
+local isLoggedIn = LocalPlayer.state.isLoggedIn
+
+if hunger < 20 then
+    print('You are very hungry!')
+end
+
+-- Read another player's state
+local targetPlayerId = GetPlayerFromServerId(targetServerId)
+local targetState = Player(targetPlayerId).state
+local targetHunger = targetState.hunger
+local targetHealth = targetState.health
+
+print('Target player hunger: '.. targetHunger)
+```
+
+---
+
+## Watching for Changes
+
+### Client-Side State Change Handlers
+
+```lua
+-- CLIENT SIDE
+-- Watch for hunger changes
+AddStateBagChangeHandler('hunger', nil, function(bagName, key, value)
+    -- Only react to your own state changes
+    local playerBagName = ('player:%s'):format(GetPlayerServerId(PlayerId()))
+    if bagName ~= playerBagName then return end
+
+    print('Your hunger changed to: '.. value)
+
+    -- Update UI
+    SendNUIMessage({
+        action = 'updateHunger',
+        hunger = value
+    })
+
+    -- Show warning if low
+    if value < 20 then
+        lib.notify({
+            description = 'You are very hungry!',
+            type = 'warning'
+        })
+    end
+end)
+
+-- Watch for thirst changes
+AddStateBagChangeHandler('thirst', nil, function(bagName, key, value)
+    local playerBagName = ('player:%s'):format(GetPlayerServerId(PlayerId()))
+    if bagName ~= playerBagName then return end
+
+    print('Your thirst changed to: '.. value)
+
+    -- Apply debuffs based on thirst level
+    if value < 10 then
+        -- Severe dehydration effects
+        SetPlayerHealthRechargeMultiplier(PlayerId(), 0.5)
+    elseif value < 30 then
+        -- Mild dehydration effects
+        SetPlayerHealthRechargeMultiplier(PlayerId(), 0.75)
+    else
+        -- Normal health regeneration
+        SetPlayerHealthRechargeMultiplier(PlayerId(), 1.0)
+    end
+end)
+
+-- Watch for login state changes
+AddStateBagChangeHandler('isLoggedIn', nil, function(bagName, key, value)
+    local playerBagName = ('player:%s'):format(GetPlayerServerId(PlayerId()))
+    if bagName ~= playerBagName then return end
+
+    if value then
+        print('Player logged in')
+        -- Initialize client-side systems
+        TriggerEvent('player:client:initialize')
+    else
+        print('Player logged out')
+        -- Clean up client-side systems
+        TriggerEvent('player:client:cleanup')
+    end
+end)
+```
+
+### Server-Side State Change Handlers
+
+```lua
+-- SERVER SIDE
+-- Watch for state changes on all players
+AddStateBagChangeHandler('hunger', nil, function(bagName, key, value)
+    -- Extract player ID from bagName format: "player:12"
+    local playerId = tonumber(bagName:gsub('player:', ''))
+    if not playerId then return end
+
+    local Player = RSGCore.Functions.GetPlayer(playerId)
+    if not Player then return end
+
+    print('Player '.. playerId ..' hunger changed to: '.. value)
+
+    -- Trigger effects based on hunger
+    if value <= 0 then
+        -- Player is starving - apply damage
+        TriggerClientEvent('player:client:takeDamage', playerId, 5, 'starvation')
+    end
+end)
+```
+
+---
+
+## Common Use Cases
+
+### Example 1: Custom HUD System
+
+```lua
+-- CLIENT SIDE
+local function UpdateHUD()
+    local hunger = LocalPlayer.state.hunger or 100
+    local thirst = LocalPlayer.state.thirst or 100
+    local health = LocalPlayer.state.health or 600
+    local stress = LocalPlayer.state.stress or 0
+    local cleanliness = LocalPlayer.state.cleanliness or 100
+
+    -- Send to NUI
+    SendNUIMessage({
+        action = 'updateHud',
+        stats = {
+            hunger = hunger,
+            thirst = thirst,
+            health = health,
+            stress = stress,
+            cleanliness = cleanliness
+        }
+    })
+end
+
+-- Update HUD periodically
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if LocalPlayer.state.isLoggedIn then
+            UpdateHUD()
+        end
+    end
+end)
+
+-- Also update immediately when any stat changes
+local stats = { 'hunger', 'thirst', 'health', 'stress', 'cleanliness' }
+for _, stat in ipairs(stats) do
+    AddStateBagChangeHandler(stat, nil, function(bagName, key, value)
+        local playerBagName = ('player:%s'):format(GetPlayerServerId(PlayerId()))
+        if bagName ~= playerBagName then return end
+        UpdateHUD()
+    end)
+end
+```
+
+### Example 2: Needs System with Debuffs
+
+```lua
+-- CLIENT SIDE
+CreateThread(function()
+    while true do
+        Wait(5000)  -- Check every 5 seconds
+
+        if not LocalPlayer.state.isLoggedIn then goto continue end
+
+        local hunger = LocalPlayer.state.hunger or 100
+        local thirst = LocalPlayer.state.thirst or 100
+        local ped = PlayerPedId()
+
+        -- Hunger effects
+        if hunger < 10 then
+            -- Severe hunger: health drain, stamina drain
+            SetPedSuffersCriticalHits(ped, true)
+            lib.notify({ description = 'You are starving!', type = 'error' })
+        elseif hunger < 30 then
+            -- Moderate hunger: reduced stamina
+            RestorePlayerStamina(PlayerId(), -25.0)
+        end
+
+        -- Thirst effects
+        if thirst < 10 then
+            -- Severe dehydration: visual effects, health drain
+            SetTimecycleModifier('spectator5')
+            lib.notify({ description = 'You are severely dehydrated!', type = 'error' })
+        elseif thirst < 30 then
+            -- Moderate thirst: reduced stamina
+            RestorePlayerStamina(PlayerId(), -25.0)
+        else
+            -- Normal hydration
+            ClearTimecycleModifier()
+        end
+
+        ::continue::
+    end
+end)
+```
+
+### Example 3: Hunger/Thirst Decrease System
+
+```lua
+-- SERVER SIDE
+-- Gradually decrease hunger and thirst over time
+CreateThread(function()
+    while true do
+        Wait(60000)  -- Every minute
+
+        for _, playerId in pairs(RSGCore.Functions.GetPlayers()) do
+            local Player = RSGCore.Functions.GetPlayer(playerId)
+            if Player then
+                local state = Player(playerId).state
+
+                -- Decrease hunger
+                local currentHunger = state.hunger or 100
+                state.hunger = math.max(0, currentHunger - 1)
+
+                -- Decrease thirst (faster than hunger)
+                local currentThirst = state.thirst or 100
+                state.thirst = math.max(0, currentThirst - 1.5)
+
+                -- Decrease cleanliness (very slow)
+                local currentCleanliness = state.cleanliness or 100
+                state.cleanliness = math.max(0, currentCleanliness - 0.5)
+            end
+        end
+    end
+end)
+```
+
+### Example 4: Consumable Items Using StateBags
+
+```lua
+-- SERVER SIDE
+-- Bread restores hunger
+RSGCore.Functions.CreateUseableItem('bread', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    if exports['rsg-inventory']:RemoveItem(source, 'bread', 1, item.slot, 'consumed') then
+        local state = Player(source).state
+        local currentHunger = state.hunger or 100
+
+        -- Restore 25 hunger (capped at 100)
+        state.hunger = math.min(100, currentHunger + 25)
+
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'You ate bread and feel less hungry',
+            type = 'success'
+        })
+    end
+end)
+
+-- Water restores thirst
+RSGCore.Functions.CreateUseableItem('water', function(source, item)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    if exports['rsg-inventory']:RemoveItem(source, 'water', 1, item.slot, 'consumed') then
+        local state = Player(source).state
+        local currentThirst = state.thirst or 100
+
+        -- Restore 30 thirst (capped at 100)
+        state.thirst = math.min(100, currentThirst + 30)
+
+        TriggerClientEvent('ox_lib:notify', source, {
+            description = 'You drank water and feel refreshed',
+            type = 'success'
+        })
+    end
+end)
+```
+
+### Example 5: Doctor Healing Using Health StateBag
+
+```lua
+-- SERVER SIDE
+RegisterNetEvent('medic:server:healPlayer', function(targetId)
+    local src = source
+    local Medic = RSGCore.Functions.GetPlayer(src)
+    local Target = RSGCore.Functions.GetPlayer(targetId)
+
+    if not Medic or not Target then return end
+
+    -- Check if source is a medic
+    if Medic.PlayerData.job.type ~= 'medic' then
+        TriggerClientEvent('ox_lib:notify', src, {
+            description = 'You are not a medic',
+            type = 'error'
+        })
+        return
+    end
+
+    -- Heal target using StateBag
+    local targetState = Player(targetId).state
+    targetState.health = 600  -- Full health
+    targetState.hunger = 100  -- Full hunger
+    targetState.thirst = 100  -- Full thirst
+
+    TriggerClientEvent('ox_lib:notify', targetId, {
+        description = 'You were healed by a doctor',
+        type = 'success'
+    })
+
+    TriggerClientEvent('ox_lib:notify', src, {
+        description = 'You healed the patient',
+        type = 'success'
+    })
+end)
+```
+
+---
+
+## Integration with Player Functions
+
+### SetMetaData Integration
+
+When you use `Player.Functions.SetMetaData()`, it automatically updates StateBags:
+
+```lua
+-- SERVER SIDE
+local Player = RSGCore.Functions.GetPlayer(source)
+
+-- This updates both PlayerData.metadata AND StateBag
+Player.Functions.SetMetaData('hunger', 50)
+Player.Functions.SetMetaData('thirst', 75)
+Player.Functions.SetMetaData('health', 600)
+
+-- The StateBag is automatically synced to client
+-- No events needed!
+```
+
+### Direct StateBag Updates
+
+You can also update StateBags directly (faster, but bypasses metadata tracking):
+
+```lua
+-- SERVER SIDE
+local state = Player(source).state
+
+-- Direct update (syncs to client immediately)
+state.hunger = 50
+state.thirst = 75
+
+-- This is faster but doesn't update PlayerData.metadata
+-- Use PersistStateBags() when saving to update metadata
+```
+
+---
+
+## When to Use StateBags vs Events
+
+### Use StateBags For:
+
+✅ **Frequently updated data**
+- Hunger, thirst, health changes
+- Real-time stat updates
+- Player status flags
+
+✅ **Data that needs instant client access**
+- HUD displays
+- Status effects
+- Proximity checks
+
+✅ **Simple value synchronization**
+- Number values
+- Boolean flags
+- String identifiers
+
+### Use Events For:
+
+❌ **Complex data updates**
+- Nested table structures
+- Large data payloads
+- Multiple related changes
+
+❌ **Actions that need validation**
+- Money transactions
+- Inventory changes
+- Permission checks
+
+❌ **One-time notifications**
+- Achievement unlocks
+- Quest completions
+- Single notifications
+
+---
+
+## Best Practices
+
+<Tip>
+**Use StateBags for frequently read data**: If you check a value in a loop, use StateBags instead of triggering events every frame
+</Tip>
+
+<Warning>
+**Don't overwrite entire tables**: StateBags work best with primitive values (numbers, strings, booleans). For complex tables, use metadata or events
+</Warning>
+
+<Check>
+**Always provide fallback values**: Use `or` operator when reading StateBags in case they haven't been initialized yet
+</Check>
+
+### Performance Guidelines
+
+1. **Read frequently, write sparingly**: StateBags are optimized for reading
+2. **Batch updates when possible**: Multiple state changes in quick succession can be batched
+3. **Use state change handlers**: More efficient than polling in loops
+4. **Avoid redundant writes**: Only update if value actually changed
+
+### Code Examples
+
+**Good Practice**:
+```lua
+-- CLIENT SIDE
+-- Read state directly when needed
+local hunger = LocalPlayer.state.hunger or 100
+
+-- Use state change handlers for reactions
+AddStateBagChangeHandler('hunger', nil, function(bagName, key, value)
+    if bagName ~= ('player:%s'):format(GetPlayerServerId(PlayerId())) then return end
+    UpdateHungerUI(value)
+end)
+```
+
+**Bad Practice**:
+```lua
+-- CLIENT SIDE
+-- DON'T poll for changes in a loop
+CreateThread(function()
+    while true do
+        Wait(0)  -- Every frame!
+        TriggerServerEvent('player:getHunger')  -- Event spam!
+    end
+end)
+```
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="StateBag values are nil or undefined" defaultOpen={false}>
+    - Ensure player is logged in (`isLoggedIn` should be true)
+    - Check that InitializeStateBags was called on server
+    - Provide fallback values: `LocalPlayer.state.hunger or 100`
+  </Accordion>
+
+  <Accordion title="State changes not syncing to client" defaultOpen={false}>
+    - Verify you're updating the correct player's state
+    - Check that the state key is one of the synced keys
+    - Ensure player is still connected
+  </Accordion>
+
+  <Accordion title="State change handler firing multiple times" defaultOpen={false}>
+    - Always check if bagName matches the intended player
+    - Use debouncing if needed for frequent updates
+    - Remove handlers when no longer needed
+  </Accordion>
+
+  <Accordion title="Performance issues with state changes" defaultOpen={false}>
+    - Don't update states too frequently (< 100ms between updates)
+    - Batch multiple state changes if possible
+    - Use state change handlers instead of polling loops
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Technical Details
+
+### StateBag Format
+
+State bags are accessed via the `Player()` native:
+
+```lua
+-- Get player state object
+local state = Player(playerId).state
+
+-- States are indexed by key
+state.hunger = 75  -- Set
+local value = state.hunger  -- Get
+```
+
+### Synced vs Non-Synced States
+
+Only these keys are automatically persisted to database:
+- `hunger`, `thirst`, `cleanliness`, `stress`, `health`
+
+Other custom states can be created but won't persist:
+```lua
+-- Custom state (won't persist to database)
+state.customFlag = true
+state.tempValue = 123
+
+-- These work fine for temporary runtime data
+-- but won't survive server restart or player relog
+```
+
+### Network Replication
+
+StateBags use FiveM's native replication system:
+- Changes replicate to all clients in range
+- Routing bucket aware
+- Automatic cleanup on player disconnect
+
+---
+
+## Next Steps
+
+- [Player Data Reference](/essentials/playerdata) - Complete player data structure
+- [Configuration Guide](/essentials/configuration) - Configure default metadata values
+- [Server Functions](/api-reference/endpoint/serverfunctionreference) - All player functions
+
+---
+
+Need help? Join the [RSG Framework Discord](https://discord.gg/rsg-redm-framework-914413479157448744)!
