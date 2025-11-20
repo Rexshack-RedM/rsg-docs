@@ -67,6 +67,9 @@
         "essentials/shared",
         "essentials/sharedexports",
         "essentials/playerdata",
+        "essentials/statebags",
+        "essentials/money-system",
+        "essentials/reputation",
         "essentials/callbacks",
         "essentials/prompts",
         "essentials/commands"
@@ -94,6 +97,7 @@
       "pages": [
         "inventory/overview",
         "inventory/functions",
+        "inventory/item-decay",
         "inventory/metaitems",
         "inventory/weapons"
       ]
